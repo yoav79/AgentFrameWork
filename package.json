@@ -8,7 +8,7 @@
     },
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "dev": "tsx apps/cli/cli.ts"
+        "dev": "tsx --env-file=.env apps/cli/cli.ts"
     },
     "repository": {
         "type": "git",

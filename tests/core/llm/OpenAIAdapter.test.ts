@@ -37,7 +37,7 @@ describe('OpenAIAdapter', () => {
     const calledParams = mockCreate.mock.calls[0][0];
     
     expect(calledParams.model).toBe('gpt-4o');
-    expect(calledParams.messages).toEqual([
+    expect(calledParams.input).toEqual([
       { role: 'system', content: 'You are an agent' },
       { role: 'user', content: 'Say hello' }
     ]);

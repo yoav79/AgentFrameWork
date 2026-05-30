@@ -40,7 +40,7 @@ export class OpenAIAdapter implements LLMAdapter {
 
     const params: any = {
       model: this.model,
-      messages: formattedMessages
+      input: formattedMessages
     };
 
     if (input.temperature !== undefined) {
