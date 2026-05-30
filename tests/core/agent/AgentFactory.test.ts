@@ -47,4 +47,51 @@ describe('AgentFactory', () => {
     expect(fs.existsSync(path.join(tempDir, 'global', 'events.json'))).toBe(true);
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
+
+  it('should register ReadFileTool with workspaceRoot and execute read_file', async () => {
+    const os = require('os');
+    const path = require('path');
+    const fs = require('fs');
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-factory-read-test-'));
+    const testFile = path.join(tempDir, 'test.txt');
+    fs.writeFileSync(testFile, 'file content from factory test', 'utf-8');
+
+    const validJson = JSON.stringify({
+      intent: 'respond',
+      confidence: 1,
+      proposedAction: { type: 'read_file', payload: { path: 'test.txt' } }
+    });
+    
+    const llmAdapter = new MockLLMAdapter(validJson);
+    const kernel = AgentFactory.create(llmAdapter, { workspaceRoot: tempDir });
+
+    const result = await kernel.run({ input: 'read test.txt' });
+    expect(result.success).toBe(true);
+    expect(result.result?.data?.content).toBe('file content from factory test');
+    expect(result.result?.data?.path).toBe('test.txt');
+
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('should fail cleanly if read_file target does not exist', async () => {
+    const os = require('os');
+    const path = require('path');
+    const fs = require('fs');
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-factory-read-fail-'));
+
+    const validJson = JSON.stringify({
+      intent: 'respond',
+      confidence: 1,
+      proposedAction: { type: 'read_file', payload: { path: 'missing.txt' } }
+    });
+    
+    const llmAdapter = new MockLLMAdapter(validJson);
+    const kernel = AgentFactory.create(llmAdapter, { workspaceRoot: tempDir });
+
+    const result = await kernel.run({ input: 'read missing.txt' });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('File does not exist');
+
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
 });

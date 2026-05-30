@@ -37,4 +37,9 @@ export class ProjectDirectoryAdapter {
     const path = join(this.getProjectsPath(), name);
     mkdirSync(path, { recursive: true });
   }
+
+  public getProjectPath(name: string): string {
+    this.validateProjectName(name);
+    return join(this.getProjectsPath(), name);
+  }
 }

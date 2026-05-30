@@ -11,9 +11,14 @@ import { ActionExecutor } from '../flow/ActionExecutor';
 import { PolicyEngine } from '../policy/PolicyEngine';
 import { MemoryReader } from '../memory/MemoryReader';
 import { ToolRegistry } from '../tools/ToolRegistry';
+import { ReadFileTool } from '../tools';
+
+export interface AgentFactoryOptions extends EventLogFactoryOptions {
+  workspaceRoot?: string;
+}
 
 export class AgentFactory {
-  public static create(llmAdapter: LLMAdapter, options?: EventLogFactoryOptions): AgentKernel {
+  public static create(llmAdapter: LLMAdapter, options?: AgentFactoryOptions): AgentKernel {
     const eventLog = EventLogFactory.create(options);
     const stateResolver = new StateResolver();
     const contextBuilder = new ContextBuilder();
@@ -26,6 +31,8 @@ export class AgentFactory {
     skillRegistry.register(new SendMessageSkill());
     
     const toolRegistry = new ToolRegistry();
+    const root = options?.workspaceRoot || process.cwd();
+    toolRegistry.register(new ReadFileTool(root));
     
     const actionExecutor = new ActionExecutor(skillRegistry, toolRegistry);
 

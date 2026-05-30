@@ -20,9 +20,9 @@ export class CommandHandler {
   private args: string[];
   private agentKernel: AgentKernel;
 
-  private createAgent: (projectId?: string) => AgentKernel;
+  private createAgent: (projectId?: string, workspaceRoot?: string) => AgentKernel;
 
-  constructor(args: string[], createAgent: (projectId?: string) => AgentKernel, directoryAdapter?: ProjectDirectoryAdapter) {
+  constructor(args: string[], createAgent: (projectId?: string, workspaceRoot?: string) => AgentKernel, directoryAdapter?: ProjectDirectoryAdapter) {
     this.renderer = new Renderer();
     this.args = args;
     this.directoryAdapter = directoryAdapter || new ProjectDirectoryAdapter();
@@ -30,7 +30,8 @@ export class CommandHandler {
     
     // Parse initially to determine the initial projectId
     const parsedArgs = this.parseArgs(args);
-    this.agentKernel = this.createAgent(parsedArgs.projectId);
+    const root = parsedArgs.projectId ? this.directoryAdapter.getProjectPath(parsedArgs.projectId) : process.cwd();
+    this.agentKernel = this.createAgent(parsedArgs.projectId, root);
   }
 
   public async execute(): Promise<void> {
@@ -241,7 +242,7 @@ export class CommandHandler {
           if (currentWorkspace) {
             currentWorkspace = null;
             parsedArgs.projectId = undefined;
-            this.agentKernel = this.createAgent(undefined);
+            this.agentKernel = this.createAgent(undefined, process.cwd());
             updatePrompt();
             console.log('\x1b[32mWorkspace cerrado. Has regresado al contexto global.\x1b[0m');
           } else {
@@ -265,7 +266,8 @@ export class CommandHandler {
               WorkspaceNameValidator.validate(target);
               currentWorkspace = target;
               parsedArgs.projectId = target; // update context
-              this.agentKernel = this.createAgent(target);
+              const root = this.directoryAdapter.getProjectPath(target);
+              this.agentKernel = this.createAgent(target, root);
               updatePrompt();
               console.log(`\x1b[32mEntrando al workspace: ${currentWorkspace}\x1b[0m`);
             } catch (error: any) {
@@ -287,7 +289,8 @@ export class CommandHandler {
               this.directoryAdapter.createProject(target);
               currentWorkspace = target;
               parsedArgs.projectId = target; // update context
-              this.agentKernel = this.createAgent(target);
+              const root = this.directoryAdapter.getProjectPath(target);
+              this.agentKernel = this.createAgent(target, root);
               updatePrompt();
               console.log(`\x1b[32mWorkspace '${currentWorkspace}' creado y seleccionado.\x1b[0m`);
             }

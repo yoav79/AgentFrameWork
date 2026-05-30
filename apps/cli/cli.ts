@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { CommandHandler } from './CommandHandler';
 import { Renderer } from './Renderer';
+import { ProjectDirectoryAdapter } from './ProjectDirectoryAdapter';
 import { AdapterFactory } from './AdapterFactory';
 import { AgentFactory } from '../../core/agent/AgentFactory';
 import { WorkspaceNameValidator } from '../../core/workspace/WorkspaceNameValidator';
@@ -40,12 +41,15 @@ async function bootstrap() {
     }
   }
 
-  const createAgent = (id?: string) => AgentFactory.create(llmAdapter, {
+  const directoryAdapter = new ProjectDirectoryAdapter();
+
+  const createAgent = (id?: string, root?: string) => AgentFactory.create(llmAdapter, {
     persist: isPersistMode,
-    projectId: id
+    projectId: id,
+    workspaceRoot: root ?? (id ? directoryAdapter.getProjectPath(id) : process.cwd())
   });
   
-  const handler = new CommandHandler(args, createAgent, undefined);
+  const handler = new CommandHandler(args, createAgent, directoryAdapter);
   
   try {
     await handler.execute();

@@ -1,8 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { execSync } from 'child_process';
 import { join } from 'path';
-import { existsSync, rmSync } from 'fs';
+import { existsSync, rmSync, writeFileSync, mkdirSync } from 'fs';
 import { homedir } from 'os';
+import { CommandHandler } from '../../apps/cli/CommandHandler';
+import { ProjectDirectoryAdapter } from '../../apps/cli/ProjectDirectoryAdapter';
+import { AgentFactory } from '../../core/agent/AgentFactory';
+import { MockLLMAdapter } from '../../core/llm/MockLLMAdapter';
 
 describe('CLI Smoke / Integration Tests', () => {
   const cliPath = join(__dirname, '../../apps/cli/cli.ts');
@@ -57,16 +61,17 @@ describe('CLI Smoke / Integration Tests', () => {
   });
 
   it('should accept /use demo in REPL', () => {
-    const output = execSync(`echo "/use demo" | npx tsx ${cliPath}`).toString();
-    expect(output).toContain('Entrando al workspace: demo');
+    const uniqueProject = `demo_${Date.now()}`;
+    const output = execSync(`echo "/create ${uniqueProject}\\n/use ${uniqueProject}" | npx tsx ${cliPath}`).toString();
+    expect(output).toContain(`Workspace '${uniqueProject}' creado y seleccionado.`);
   });
 
   it('should rebuild AgentKernel with correct EventLog path after /use with --persist', () => {
     const uniqueProject = `test_proj_${Date.now()}`;
-    // Feed two commands: /use project, then a normal message 'hola'
-    const output = execSync(`echo "/use ${uniqueProject}\nhola\n/exit" | npx tsx ${cliPath} --persist`).toString();
+    // Feed two commands: /create project, then a normal message 'hola'
+    const output = execSync(`echo "/create ${uniqueProject}\nhola\n/exit" | npx tsx ${cliPath} --persist`).toString();
     
-    expect(output).toContain(`Entrando al workspace: ${uniqueProject}`);
+    expect(output).toContain(`Workspace '${uniqueProject}' creado y seleccionado.`);
     expect(output).toContain('Mock LLM response');
 
     const expectedLogPath = join(homedir(), '.agentframework', 'projects', uniqueProject, 'events.json');
@@ -74,5 +79,45 @@ describe('CLI Smoke / Integration Tests', () => {
 
     // Clean up
     rmSync(join(homedir(), '.agentframework', 'projects', uniqueProject), { recursive: true, force: true });
+  });
+
+  it('should execute read_file end-to-end programmatically', async () => {
+    const uniqueProject = `integration_read_${Date.now()}`;
+    const adapter = new ProjectDirectoryAdapter();
+    adapter.createProject(uniqueProject);
+    const projectPath = adapter.getProjectPath(uniqueProject);
+    
+    writeFileSync(join(projectPath, 'secret.txt'), 'super secret content', 'utf-8');
+
+    const validJson = JSON.stringify({
+      intent: 'respond',
+      confidence: 1,
+      proposedAction: { type: 'read_file', payload: { path: 'secret.txt' } }
+    });
+    
+    const llmAdapter = {
+      generate: async () => ({ content: validJson })
+    };
+    
+    const createAgent = (id?: string, root?: string) => AgentFactory.create(llmAdapter as any, {
+      projectId: id,
+      workspaceRoot: root
+    });
+
+    const handler = new CommandHandler(['--project', uniqueProject, 'hello'], createAgent, adapter);
+    
+    // Capture console output to verify success rendering
+    const logs: string[] = [];
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation((msg: any) => {
+      logs.push(msg);
+    });
+
+    await handler.execute();
+
+    const output = logs.join('\\n');
+    expect(output).toContain('File read successfully');
+    
+    consoleSpy.mockRestore();
+    rmSync(projectPath, { recursive: true, force: true });
   });
 });
