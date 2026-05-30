@@ -3,3 +3,4 @@ export * from './EventType';
 export * from './Event';
 export * from './EventLog';
 export * from './InMemoryEventLog';
+export * from './FileEventLog';
