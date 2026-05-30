@@ -3,6 +3,7 @@ export class Renderer {
     const flagsHelp = `
 Flags (Startup Options):
   --agent                Use new Agent mode (legacy mode is default without this flag)
+  --persist              Enable file persistence (only applies to --agent mode)
   --llm <provider>       LLM Provider (mock, openai). Default: mock
   --model <model>        Model ID. Default for openai: gpt-4o-mini
   --api-key <key>        OpenAI API Key (required for openai provider). Recommendation: use $OPENAI_API_KEY environment variable if possible

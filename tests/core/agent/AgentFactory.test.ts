@@ -30,4 +30,21 @@ describe('AgentFactory', () => {
     expect(result.success).toBe(true);
     expect(result.result?.message).toBe('hello from factory');
   });
+  it('should use EventLogFactory options correctly', () => {
+    const llmAdapter = new MockLLMAdapter('{}');
+    // Using persist false
+    const kernelMem = AgentFactory.create(llmAdapter, { persist: false });
+    expect(kernelMem).toBeDefined();
+
+    // Using persist true with tmpdir
+    const os = require('os');
+    const path = require('path');
+    const fs = require('fs');
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-factory-test-'));
+    
+    const kernelPersist = AgentFactory.create(llmAdapter, { persist: true, baseDir: tempDir });
+    expect(kernelPersist).toBeDefined();
+    expect(fs.existsSync(path.join(tempDir, 'global', 'events.json'))).toBe(true);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
 });

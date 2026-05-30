@@ -44,6 +44,10 @@ export class CommandHandler {
         return;
       }
 
+      if (this.args.includes('--persist') && !this.agentKernel) {
+        console.warn('\x1b[33mWarning: --persist se ignora en el modo Legacy\x1b[0m');
+      }
+
       if (!parsedArgs.message) {
         await this.startInteractiveMode(parsedArgs);
         return;
@@ -116,6 +120,8 @@ export class CommandHandler {
       } else if (arg === '--debug') {
         result.debug = true;
       } else if (arg === '--agent') {
+        // Just flag, don't add to positional
+      } else if (arg === '--persist') {
         // Just flag, don't add to positional
       } else if (arg === '--project') {
         result.projectId = args[++i];

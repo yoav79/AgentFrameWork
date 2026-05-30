@@ -20,7 +20,19 @@ async function bootstrap() {
   const kernel = new Kernel({ llm: llmAdapter });
   
   const isAgentMode = args.includes('--agent');
-  const agentKernel = isAgentMode ? AgentFactory.create(llmAdapter) : undefined;
+  const isPersistMode = args.includes('--persist');
+  
+  let projectId;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--project') {
+      projectId = args[i + 1];
+    }
+  }
+
+  const agentKernel = isAgentMode ? AgentFactory.create(llmAdapter, {
+    persist: isPersistMode,
+    projectId: projectId
+  }) : undefined;
   
   const handler = new CommandHandler(args, kernel, undefined, agentKernel);
   

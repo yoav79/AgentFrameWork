@@ -1,6 +1,6 @@
 import { LLMAdapter } from '../llm/LLMAdapter';
 import { AgentKernel } from './AgentKernel';
-import { InMemoryEventLog } from '../events/InMemoryEventLog';
+import { EventLogFactory, EventLogFactoryOptions } from '../events/EventLogFactory';
 import { StateResolver } from '../state/StateResolver';
 import { ContextBuilder } from '../context/ContextBuilder';
 import { PromptBuilder } from '../context/PromptBuilder';
@@ -10,8 +10,8 @@ import { SendMessageSkill } from '../skills/SendMessageSkill';
 import { ActionExecutor } from '../flow/ActionExecutor';
 
 export class AgentFactory {
-  public static create(llmAdapter: LLMAdapter): AgentKernel {
-    const eventLog = new InMemoryEventLog();
+  public static create(llmAdapter: LLMAdapter, options?: EventLogFactoryOptions): AgentKernel {
+    const eventLog = EventLogFactory.create(options);
     const stateResolver = new StateResolver();
     const contextBuilder = new ContextBuilder();
     const promptBuilder = new PromptBuilder();
