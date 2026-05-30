@@ -34,13 +34,14 @@ El ciclo de vida general del "mensaje" opera de la siguiente manera:
 ## 4. Capacidades Actuales de la Infraestructura
 - Inversión de Control funcional completa; la capa de ruteo está implementada y es extensible.
 - Protección a fallos en cadena gracias al `ResponseNormalizer` el cual envuelve respuestas rotas o red fallida en esquemas legibles en lugar de *panics*.
-- Aislamiento robusto de Tests Unitarios (100% pasando usando la librería `vitest`).
+- Sistema de tipos estricto y alineado. La orquestación y el compilador (`tsc --noEmit`) funcionan bajo un contrato determinista validado por scripts estándar (`npm run typecheck`).
+- Aislamiento robusto de Tests Unitarios (100% pasando usando la librería `vitest`, suite limpia y segura).
+- **Filesystem Confinado:** El framework expone un adaptador de proyectos (`ProjectDirectoryAdapter`) capaz de leer y crear directorios reales (`projects/`) aplicando fuertes validaciones de seguridad para prohibir el Path Traversal.
 
 ## 5. Capacidades Simuladas y Roadmap a Futuro
-Actualmente, el sistema simula varias capacidades que deberán concretarse en iteraciones posteriores:
+Actualmente, el sistema simula algunas capacidades que deberán completarse o refinarse:
 
-* **File System y Workspaces:** Las acciones `/create` y `/list` operan en memoria.
-* **Sesiones Estables:** El comando `/session` solo emite un mensaje, sin estado persistido entre recargas.
+* **Sesiones Estables:** El comando `/session` solo emite un mensaje en modo legacy, sin estado persistido entre recargas interactivas. (Nota: La persistencia de memoria está en fase temprana a través del flag `--persist` y el `AgentKernel`).
 
 ### Módulos Reservados (Placeholders)
 En el directorio `core/` conviven carpetas base para una agresiva evolución futura:

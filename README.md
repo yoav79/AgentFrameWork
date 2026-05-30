@@ -21,14 +21,20 @@ El proyecto utiliza `tsx` para la ejecución de TypeScript en tiempo real.
   ```bash
   npm run dev
   ```
-- **Correr Tests:**
+- **Correr Tests (Unitarios):**
   ```bash
+  npm test
+  # Opcionalmente para ejecución directa con vitest:
   npx vitest run
+  ```
+- **Verificación Estricta de Tipos:**
+  ```bash
+  npm run typecheck
   ```
 
 ## Uso del CLI
 
-El framework proporciona una interfaz de línea de comandos rica que opera en dos modos: "One-off" e "Interactivo".
+El framework proporciona una interfaz de línea de comandos rica que opera en dos modos: "One-off" e "Interactivo", y soporta tanto el modo de kernel nativo (Legacy) como el nuevo motor agéntico (`--agent`).
 
 ### Modo One-off
 Permite ejecutar una única consulta al agente y recibir la respuesta, terminando el proceso de inmediato.
@@ -41,6 +47,13 @@ Inicia un entorno conversacional continuo si no se provee un mensaje directo.
 ```bash
 npx tsx apps/cli/cli.ts
 ```
+
+### Motor Agéntico y Persistencia
+Para invocar al nuevo `AgentKernel` que provee memoria contextual histórica e integración con el `EventLogFactory`, usa la bandera `--agent`. Si deseas persistir los eventos entre ejecuciones (en el disco local dentro de `~/.agentframework` o en la carpeta `projects/`), añade `--persist`.
+```bash
+npx tsx apps/cli/cli.ts --agent --persist
+```
+*Nota: La bandera `--persist` se ignora de forma segura si no se habilita `--agent`.*
 
 ### Selección de Proveedor LLM
 
@@ -80,9 +93,11 @@ npx tsx apps/cli/cli.ts --llm openai --model gpt-4 "Usa GPT-4"
 |---|---|---|
 | `--llm <provider>` | Proveedor de LLM a usar (`mock`, `openai`). | `mock` |
 | `--model <id>` | ID del modelo a usar (aplica para `openai`). | `gpt-4o-mini` |
-| `--api-key <key>` | Clave de acceso para la API de OpenAI. | N/A |
-| `--project <id>` | ID del proyecto/workspace a usar en el contexto. | N/A |
+| `--api-key <key>` | Clave de acceso para la API de OpenAI. Alternativamente, usar `OPENAI_API_KEY`. | N/A |
+| `--project <id>` | ID del proyecto/workspace a usar en el contexto. Sujeto a reglas de seguridad. | N/A |
 | `--session <id>` | ID de la sesión a utilizar. | N/A |
+| `--agent` | Habilita el `AgentKernel` con soporte de memoria histórica y eventos. | `false` |
+| `--persist` | Habilita la persistencia de memoria en el sistema de archivos (solo con `--agent`). | `false` |
 | `--debug` | Habilita la impresión de mensajes de depuración en consola. | `false` |
 | `--help` | Muestra la ayuda estática. | N/A |
 | `--version` | Muestra la versión actual del `package.json`. | N/A |
@@ -97,11 +112,14 @@ Dentro del modo REPL, puedes usar los siguientes comandos especiales:
 | `/version` | Muestra la versión del framework. | Implementado |
 | `/debug` | Alterna el modo de depuración de la sesión actual. | Implementado |
 | `/list` | Lista los workspaces (proyectos) disponibles. | Simulado |
-| `/create <name>` | Crea un nuevo workspace. | Simulado |
-| `/use <name>` | Entra al contexto de un workspace. | Simulado |
+| `/create <name>` | Crea un nuevo workspace en la carpeta `projects/`. | Implementado |
+| `/use <name>` | Entra al contexto de un workspace. | Implementado |
 | `/close` | Sale del contexto del workspace actual. | Implementado |
 | `/session` | Muestra información de la sesión actual. | Simulado |
 | `/exit` | Cierra el CLI. | Implementado |
+
+### Seguridad en Workspaces
+La creación de workspaces (`/create`) y el seteo de proyecto (`--project`) implementan una estricta sanitización contra vulnerabilidades de **Path Traversal**. Los nombres de proyecto solo pueden contener caracteres alfanuméricos, guiones (`-`) y guiones bajos (`_`). El uso de separadores de ruta (`/`, `\`, `.`, `..`) es rechazado activamente.
 
 ## Arquitectura Resumida
 
@@ -123,11 +141,11 @@ La arquitectura desacopla estrictamente la interfaz de la lógica agnóstica:
 - Enrutamiento y ciclo de vida de CLI (One-off / Interactivo).
 - Inyección dinámica de adaptadores de LLM (`mock`, `openai`).
 - Parseo profundo de parámetros y aislamiento posicional de texto.
-- Manejo limpio de errores capturados con el componente `Renderer`.
-- Suite extensa de Unit Tests (Vitest).
+- Manejo limpio de errores controlados (`FrameworkError` con validación estricta de códigos como `VALIDATION_ERROR`, `CONFIG_ERROR`).
+- Soporte temprano del nuevo **Agente** (`AgentKernel`) con integración a `MemoryReader` y `EventLogFactory` para contexto histórico.
+- Suite extensa de Unit Tests (Vitest) para todos los componentes, garantizando un build reproducible (`npm test` y `npm run typecheck`).
+- File System de Workspaces con validación de seguridad contra Path Traversal integrada (`ProjectDirectoryAdapter`).
 
 ### 🚧 Simuladas o Pendientes
-- **Persistencia de Workspaces:** Las operaciones `/create`, `/list`, `/use` se mantienen puramente en memoria, simulando el File System.
-- **Manejo de Sesiones:** El comando `/session` notifica que la persistencia de sesión aún no está operativa.
-- **Módulos Agénticos Avanzados:** La estructura base para `flow`, `memory`, `routing`, `skills`, `tools` existe en `core/`, pero actualmente los directorios se mantienen como placeholders para el roadmap futuro.
-- **Configuración mediante Entorno (`.env`):** Aún no se extrae la clave del API automáticamente de `process.env`.
+- **Manejo de Sesiones:** El comando `/session` notifica que la persistencia puramente de sesión interactiva aún no está operativa en modo legacy.
+- **Módulos Agénticos Avanzados:** La estructura base para `flow`, `routing`, `skills`, `tools` existe en `core/`, pero aguarda implementaciones concretas de herramientas de lectura de disco o auto-corrección (roadmap futuro).

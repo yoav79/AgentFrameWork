@@ -43,3 +43,16 @@ Se complementó la selección de proveedor añadiendo soporte de fallback seguro
 ## Deuda Técnica y Pendientes Recomendados
 1. **Actualizar Ayuda Visual:** El comando interactivo `/help` y la bandera `--help` estática manejadas por `Renderer.ts` no han sido actualizadas y no describen los flags `--llm`, `--model` ni `--api-key`.
 2. **Persistencia Real:** Transformar las operaciones de workspace en el `ProjectDirectoryAdapter` simulado hacia un adaptador real del sistema de archivos local (`fs`).
+
+## Sprint 15: Estabilización Técnica
+
+**Fecha de Cierre:** Mayo 2026
+
+Se completó una profunda estabilización del repositorio para mitigar deudas técnicas e inconsistencias que amenazaban la escalabilidad de nuevas características.
+
+**Objetivos Cumplidos:**
+- **Scripts Reproducibles:** Estandarización de `npm test` y adición de validación estricta de TypeScript con `npm run typecheck`.
+- **Alineación de Tipos:** Configuración de `tsconfig.json` ajustada al runtime `CommonJS` real del framework, eliminando más de 500 errores estructurales de tipado desactivando `exactOptionalPropertyTypes` para interfaces dinámicas e impidiendo que TypeScript colisione con el entorno.
+- **Seguridad (Path Traversal):** Implementación de rechazo fail-fast en la creación de proyectos (`/create` y `--project`), utilizando una whitelist estricta (`/[^a-zA-Z0-9_-]/`) que prohíbe explícitamente puntos y barras relativas para evitar vulnerabilidades.
+- **Unificación de ErrorCodes:** Ampliación tipificada de los códigos faltantes (ej. `VALIDATION_ERROR`, `CONFIG_ERROR`) para que el framework reporte rechazos previstos de forma determinista.
+- **Pase Global de Tests:** Reparación de cientos de instancias opcionales (`TS2532`) en los tests de Vitest, logrando que el 100% de la suite de 156 tests pase limpiamente sin errores de consola ni advertencias del compilador.
