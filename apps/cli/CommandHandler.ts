@@ -20,11 +20,17 @@ export class CommandHandler {
   private args: string[];
   private agentKernel: AgentKernel;
 
-  constructor(args: string[], agentKernel: AgentKernel, directoryAdapter?: ProjectDirectoryAdapter) {
+  private createAgent: (projectId?: string) => AgentKernel;
+
+  constructor(args: string[], createAgent: (projectId?: string) => AgentKernel, directoryAdapter?: ProjectDirectoryAdapter) {
     this.renderer = new Renderer();
     this.args = args;
     this.directoryAdapter = directoryAdapter || new ProjectDirectoryAdapter();
-    this.agentKernel = agentKernel;
+    this.createAgent = createAgent;
+    
+    // Parse initially to determine the initial projectId
+    const parsedArgs = this.parseArgs(args);
+    this.agentKernel = this.createAgent(parsedArgs.projectId);
   }
 
   public async execute(): Promise<void> {
@@ -235,6 +241,7 @@ export class CommandHandler {
           if (currentWorkspace) {
             currentWorkspace = null;
             parsedArgs.projectId = undefined;
+            this.agentKernel = this.createAgent(undefined);
             updatePrompt();
             console.log('\x1b[32mWorkspace cerrado. Has regresado al contexto global.\x1b[0m');
           } else {
@@ -258,6 +265,7 @@ export class CommandHandler {
               WorkspaceNameValidator.validate(target);
               currentWorkspace = target;
               parsedArgs.projectId = target; // update context
+              this.agentKernel = this.createAgent(target);
               updatePrompt();
               console.log(`\x1b[32mEntrando al workspace: ${currentWorkspace}\x1b[0m`);
             } catch (error: any) {
@@ -279,6 +287,7 @@ export class CommandHandler {
               this.directoryAdapter.createProject(target);
               currentWorkspace = target;
               parsedArgs.projectId = target; // update context
+              this.agentKernel = this.createAgent(target);
               updatePrompt();
               console.log(`\x1b[32mWorkspace '${currentWorkspace}' creado y seleccionado.\x1b[0m`);
             }
@@ -324,7 +333,11 @@ export class CommandHandler {
             this.renderer.renderError(error as Error, parsedArgs.debug);
           }
         }
-        rl.prompt();
+        try {
+          rl.prompt();
+        } catch (e: any) {
+          if (e.code !== 'ERR_USE_AFTER_CLOSE') throw e;
+        }
       }).on('close', () => {
         resolve();
       });

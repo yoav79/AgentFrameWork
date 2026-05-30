@@ -40,12 +40,12 @@ async function bootstrap() {
     }
   }
 
-  const agentKernel = AgentFactory.create(llmAdapter, {
+  const createAgent = (id?: string) => AgentFactory.create(llmAdapter, {
     persist: isPersistMode,
-    projectId: projectId
+    projectId: id
   });
   
-  const handler = new CommandHandler(args, agentKernel, undefined);
+  const handler = new CommandHandler(args, createAgent, undefined);
   
   try {
     await handler.execute();

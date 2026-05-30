@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { execSync } from 'child_process';
 import { join } from 'path';
+import { existsSync, rmSync } from 'fs';
+import { homedir } from 'os';
 
 describe('CLI Smoke / Integration Tests', () => {
   const cliPath = join(__dirname, '../../apps/cli/cli.ts');
@@ -57,5 +59,20 @@ describe('CLI Smoke / Integration Tests', () => {
   it('should accept /use demo in REPL', () => {
     const output = execSync(`echo "/use demo" | npx tsx ${cliPath}`).toString();
     expect(output).toContain('Entrando al workspace: demo');
+  });
+
+  it('should rebuild AgentKernel with correct EventLog path after /use with --persist', () => {
+    const uniqueProject = `test_proj_${Date.now()}`;
+    // Feed two commands: /use project, then a normal message 'hola'
+    const output = execSync(`echo "/use ${uniqueProject}\nhola\n/exit" | npx tsx ${cliPath} --persist`).toString();
+    
+    expect(output).toContain(`Entrando al workspace: ${uniqueProject}`);
+    expect(output).toContain('Mock LLM response');
+
+    const expectedLogPath = join(homedir(), '.agentframework', 'projects', uniqueProject, 'events.json');
+    expect(existsSync(expectedLogPath)).toBe(true);
+
+    // Clean up
+    rmSync(join(homedir(), '.agentframework', 'projects', uniqueProject), { recursive: true, force: true });
   });
 });
