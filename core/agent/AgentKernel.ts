@@ -14,6 +14,7 @@ import { MemoryReader } from '../memory/MemoryReader';
 import { ExecutionTrace } from '../flow/ExecutionTrace';
 import { AgentStep } from '../flow/AgentStep';
 import { StepResult } from '../flow/StepResult';
+import { ResultSanitizer } from '../flow/ResultSanitizer';
 
 export interface AgentRunInput {
   input: string;
@@ -140,11 +141,7 @@ export class AgentKernel {
         agentStep.error = actionResult.error;
       }
       
-      let sanitizedData = actionResult.data;
-      if (sanitizedData && typeof sanitizedData === 'object' && 'content' in sanitizedData) {
-        const { content, ...rest } = sanitizedData as any;
-        sanitizedData = rest;
-      }
+      const sanitizedData = ResultSanitizer.sanitizeData(actionResult.data);
 
       trace.addResult({
         step: agentStep,

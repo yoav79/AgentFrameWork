@@ -287,7 +287,7 @@ describe('AgentKernel', () => {
     actionExecutor.execute = async () => ({
       success: true,
       message: 'File read successfully',
-      data: { path: 'test.txt', content: 'GIANT FILE CONTENT HERE' }
+      data: { path: 'test.txt', content: 'GIANT FILE CONTENT HERE', base64Data: 'dGVzdA==' }
     });
 
     const kernel = new AgentKernel(
@@ -300,9 +300,17 @@ describe('AgentKernel', () => {
     expect(result.trace).toBeDefined();
     expect(result.trace?.results.length).toBe(1);
     
+    // Trace must not have content or base64Data
     const traceData = result.trace?.results[0]!.data as any;
     expect(traceData).toBeDefined();
     expect(traceData.path).toBe('test.txt');
     expect(traceData.content).toBeUndefined(); // Sanitize check!
+    expect(traceData.base64Data).toBeUndefined(); // Sanitize check!
+    
+    // The original execution result object returned to caller MUST NOT be mutated
+    const originalData = result.result?.data as any;
+    expect(originalData).toBeDefined();
+    expect(originalData.content).toBe('GIANT FILE CONTENT HERE');
+    expect(originalData.base64Data).toBe('dGVzdA==');
   });
 });
