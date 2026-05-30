@@ -33,7 +33,13 @@ Se completó de forma exitosa la refactorización de inicialización del CLI par
 ## Riesgos Conocidos
 - La provisión manual de tokens mediante banderas (`--api-key`) en línea de comandos expone claves críticas en el historial del bash del usuario, lo cual representa un riesgo de seguridad latente en entornos locales compartidos o de despliegue automatizado.
 
+## Sprint: Soporte de OPENAI_API_KEY
+Se complementó la selección de proveedor añadiendo soporte de fallback seguro para credenciales.
+- `AdapterFactory` ahora lee nativamente `process.env.OPENAI_API_KEY`.
+- La bandera explícita `--api-key` mantiene prioridad para sobreescribir la configuración del entorno.
+- Se implementaron y validaron reglas de precedencia, incluyendo el manejo estricto de testing aislando el `process.env` con Vitest (`vi.stubEnv`).
+- Esto elimina el riesgo de exponer contraseñas en el historial del shell local, sin añadir la sobrecarga de dependencias de terceros (`dotenv`).
+
 ## Deuda Técnica y Pendientes Recomendados
-1. **Lectura de Entorno (.env):** Desarrollar un sistema de configuración que alimente la llave API directamente desde `process.env.OPENAI_API_KEY`.
-2. **Actualizar Ayuda Visual:** El comando interactivo `/help` y la bandera `--help` estática manejadas por `Renderer.ts` no han sido actualizadas y no describen los flags `--llm`, `--model` ni `--api-key`.
-3. **Persistencia Real:** Transformar las operaciones de workspace en el `ProjectDirectoryAdapter` simulado hacia un adaptador real del sistema de archivos local (`fs`).
+1. **Actualizar Ayuda Visual:** El comando interactivo `/help` y la bandera `--help` estática manejadas por `Renderer.ts` no han sido actualizadas y no describen los flags `--llm`, `--model` ni `--api-key`.
+2. **Persistencia Real:** Transformar las operaciones de workspace en el `ProjectDirectoryAdapter` simulado hacia un adaptador real del sistema de archivos local (`fs`).

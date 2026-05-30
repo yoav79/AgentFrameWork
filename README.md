@@ -55,12 +55,22 @@ npx tsx apps/cli/cli.ts --llm mock "Simula una respuesta"
 
 **Usando OpenAI:**
 *Nota: Requiere una API Key válida. El modelo por defecto si no se especifica es `gpt-4o-mini`.*
-```bash
-# Recomendado: Exporta la variable o pásala en línea si el shell lo permite sin guardarlo
-npx tsx apps/cli/cli.ts --llm openai --api-key $OPENAI_API_KEY "Genera un texto real"
 
-# Especificando un modelo concreto:
-npx tsx apps/cli/cli.ts --llm openai --model gpt-4 --api-key $OPENAI_API_KEY "Usa GPT-4"
+**Forma recomendada (Variable de Entorno):**
+Exporta tu llave en el entorno antes de correr el CLI. Esto evita que la llave quede en el historial de tu shell.
+```bash
+export OPENAI_API_KEY="sk-tu-llave-secreta"
+npx tsx apps/cli/cli.ts --llm openai "Genera un texto real"
+```
+
+**Forma alternativa (Flag CLI):**
+```bash
+npx tsx apps/cli/cli.ts --llm openai --api-key "sk-tu-llave-secreta" "Genera un texto real"
+```
+
+**Especificando un modelo concreto:**
+```bash
+npx tsx apps/cli/cli.ts --llm openai --model gpt-4 "Usa GPT-4"
 ```
 
 ### Tabla de Flags CLI

@@ -7,7 +7,7 @@ import { ConfigFactory } from '../../core/config/ConfigFactory';
 export class AdapterFactory {
   public static createAdapter(args: string[]): LLMAdapter {
     let provider = 'mock';
-    let apiKey: string | undefined;
+    let apiKey: string | undefined = process.env.OPENAI_API_KEY;
     let model = 'gpt-4o-mini';
 
     for (let i = 0; i < args.length; i++) {
@@ -30,7 +30,7 @@ export class AdapterFactory {
 
     if (provider === 'openai') {
       if (!apiKey) {
-        throw new FrameworkError('CONFIG_ERROR', 'API Key is required for OpenAI provider. Use --api-key <key>.');
+        throw new FrameworkError('CONFIG_ERROR', 'API Key is required for OpenAI provider. Please set OPENAI_API_KEY environment variable or use --api-key <key>.');
       }
       return new OpenAIAdapter({ apiKey, model });
     }
