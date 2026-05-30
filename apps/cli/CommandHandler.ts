@@ -63,13 +63,19 @@ export class CommandHandler {
             sessionId: parsedArgs.sessionId
           });
         }
+        this.renderer.startSpinner();
         result = await this.agentKernel.run({
           input: parsedArgs.message as string,
           projectId: parsedArgs.projectId,
           sessionId: parsedArgs.sessionId
         });
+        this.renderer.stopSpinner();
         this.renderer.renderResponse(result);
+        if (!result.success) {
+          process.exitCode = 1;
+        }
       } catch (kernelError) {
+        this.renderer.stopSpinner();
         this.renderer.renderError(kernelError as Error, parsedArgs.debug);
       }
 
@@ -299,13 +305,16 @@ export class CommandHandler {
                 sessionId: parsedArgs.sessionId
               });
             }
+            this.renderer.startSpinner();
             result = await this.agentKernel.run({
               input: inputLine,
               projectId: parsedArgs.projectId,
               sessionId: parsedArgs.sessionId
             });
+            this.renderer.stopSpinner();
             this.renderer.renderResponse(result);
           } catch (error) {
+            this.renderer.stopSpinner();
             this.renderer.renderError(error as Error, parsedArgs.debug);
           }
         }

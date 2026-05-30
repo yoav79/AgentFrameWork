@@ -141,4 +141,26 @@ describe('CommandHandler Integration', () => {
     runSpy.mockRestore();
     consoleErrorSpy.mockRestore();
   });
+
+  it('should set process.exitCode to 1 if one-off execution returns success: false', async () => {
+    const mockAgentKernel = new MockAgentKernel() as unknown as AgentKernel;
+    vi.spyOn(mockAgentKernel, 'run').mockResolvedValue({ success: false, error: 'Agent failed' });
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const handler = new CommandHandler(['hello'], mockAgentKernel, mockDirectoryAdapter as ProjectDirectoryAdapter);
+    
+    // Store original exit code
+    const originalExitCode = process.exitCode;
+    process.exitCode = undefined;
+
+    await handler.execute();
+
+    expect(process.exitCode).toBe(1);
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    expect(consoleErrorSpy.mock.calls[0]![0]).toContain('Agent failed');
+
+    // Restore exit code
+    process.exitCode = originalExitCode;
+    consoleErrorSpy.mockRestore();
+  });
 });
