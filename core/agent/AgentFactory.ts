@@ -8,6 +8,7 @@ import { DecisionParser } from '../routing/DecisionParser';
 import { SkillRegistry } from '../skills/SkillRegistry';
 import { SendMessageSkill } from '../skills/SendMessageSkill';
 import { ActionExecutor } from '../flow/ActionExecutor';
+import { PolicyEngine } from '../policy/PolicyEngine';
 
 export class AgentFactory {
   public static create(llmAdapter: LLMAdapter, options?: EventLogFactoryOptions): AgentKernel {
@@ -16,6 +17,7 @@ export class AgentFactory {
     const contextBuilder = new ContextBuilder();
     const promptBuilder = new PromptBuilder();
     const decisionParser = new DecisionParser();
+    const policyEngine = new PolicyEngine();
     
     const skillRegistry = new SkillRegistry();
     skillRegistry.register(new SendMessageSkill());
@@ -29,6 +31,7 @@ export class AgentFactory {
       promptBuilder,
       llmAdapter,
       decisionParser,
+      policyEngine,
       actionExecutor
     );
   }

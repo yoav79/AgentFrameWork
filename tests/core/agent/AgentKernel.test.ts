@@ -9,6 +9,7 @@ import { ActionExecutor } from '../../../core/flow/ActionExecutor';
 import { LLMAdapter } from '../../../core/llm/LLMAdapter';
 import { SkillRegistry } from '../../../core/skills/SkillRegistry';
 import { Skill } from '../../../core/skills/Skill';
+import { PolicyEngine } from '../../../core/policy/PolicyEngine';
 
 class MockLLMAdapter implements LLMAdapter {
   constructor(public responseContent: string) {}
@@ -39,13 +40,14 @@ describe('AgentKernel', () => {
     const llmAdapter = new MockLLMAdapter(validJson);
     
     const decisionParser = new DecisionParser();
+    const policyEngine = new PolicyEngine();
     const skillRegistry = new SkillRegistry();
     skillRegistry.register(new MockSkill());
     const actionExecutor = new ActionExecutor(skillRegistry);
 
     const kernel = new AgentKernel(
       eventLog, stateResolver, contextBuilder, promptBuilder,
-      llmAdapter, decisionParser, actionExecutor
+      llmAdapter, decisionParser, policyEngine, actionExecutor
     );
 
     const result = await kernel.run({
@@ -77,11 +79,12 @@ describe('AgentKernel', () => {
     });
     const llmAdapter = new MockLLMAdapter(validJson);
     const decisionParser = new DecisionParser();
+    const policyEngine = new PolicyEngine();
     const actionExecutor = new ActionExecutor(new SkillRegistry()); // Empty registry!
 
     const kernel = new AgentKernel(
       eventLog, stateResolver, contextBuilder, promptBuilder,
-      llmAdapter, decisionParser, actionExecutor
+      llmAdapter, decisionParser, policyEngine, actionExecutor
     );
 
     const result = await kernel.run({ input: 'hello' });
@@ -93,14 +96,57 @@ describe('AgentKernel', () => {
     const eventLog = new InMemoryEventLog();
     const llmAdapter = new MockLLMAdapter('This is not json');
     const actionExecutor = new ActionExecutor(new SkillRegistry());
+    const policyEngine = new PolicyEngine();
 
     const kernel = new AgentKernel(
       eventLog, new StateResolver(), new ContextBuilder(), new PromptBuilder(),
-      llmAdapter, new DecisionParser(), actionExecutor
+      llmAdapter, new DecisionParser(), policyEngine, actionExecutor
     );
 
     const result = await kernel.run({ input: 'hello' });
     expect(result.success).toBe(false);
     expect(result.error).toContain('Failed to parse raw decision');
+  });
+
+  it('should abort execution and return false if policy rejects due to low confidence', async () => {
+    const validJson = JSON.stringify({
+      intent: 'respond',
+      confidence: 0.1,
+      proposedAction: { type: 'send_message', payload: { message: 'hello' } }
+    });
+    
+    const llmAdapter = new MockLLMAdapter(validJson);
+    const kernel = new AgentKernel(
+      new InMemoryEventLog(), new StateResolver(), new ContextBuilder(), new PromptBuilder(),
+      llmAdapter, new DecisionParser(), new PolicyEngine(), new ActionExecutor(new SkillRegistry())
+    );
+
+    const result = await kernel.run({ input: 'hello' });
+    expect(result.success).toBe(false);
+    expect(result.policyReason).toContain('below the required threshold');
+    expect(result.error).toBeUndefined(); // Should use policyReason, not error
+  });
+
+  it('should abort execution and return false if policy rejects due to unknown action', async () => {
+    const validJson = JSON.stringify({
+      intent: 'respond',
+      confidence: 0.9,
+      proposedAction: { type: 'format_disk', payload: {} }
+    });
+    
+    const llmAdapter = new MockLLMAdapter(validJson);
+    const decisionParser = new DecisionParser();
+    // Spy and mock parse to bypass validation for this specific test
+    decisionParser.parse = () => JSON.parse(validJson);
+    
+    const kernel = new AgentKernel(
+      new InMemoryEventLog(), new StateResolver(), new ContextBuilder(), new PromptBuilder(),
+      llmAdapter, decisionParser, new PolicyEngine(), new ActionExecutor(new SkillRegistry())
+    );
+
+    const result = await kernel.run({ input: 'hello' });
+    expect(result.success).toBe(false);
+    expect(result.policyReason).toContain('is unknown or not permitted');
+    expect(result.error).toBeUndefined();
   });
 });

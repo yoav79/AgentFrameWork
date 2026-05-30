@@ -9,6 +9,7 @@ import { ActionExecutor } from '../flow/ActionExecutor';
 import { Decision } from '../schemas/Decision';
 import { SkillResult } from '../skills/SkillResult';
 import { State } from '../state/State';
+import { PolicyEngine } from '../policy/PolicyEngine';
 
 export interface AgentRunInput {
   input: string;
@@ -23,6 +24,7 @@ export interface AgentRunResult {
   state?: State;
   eventId?: string;
   error?: string;
+  policyReason?: string;
 }
 
 export class AgentKernel {
@@ -33,6 +35,7 @@ export class AgentKernel {
     private readonly promptBuilder: PromptBuilder,
     private readonly llmAdapter: LLMAdapter,
     private readonly decisionParser: DecisionParser,
+    private readonly policyEngine: PolicyEngine,
     private readonly actionExecutor: ActionExecutor
   ) {}
 
@@ -64,6 +67,18 @@ export class AgentKernel {
       });
 
       const decision = this.decisionParser.parse(llmResult.content);
+      
+      const policyDecision = this.policyEngine.evaluate(decision);
+      if (!policyDecision.allowed) {
+        return {
+          success: false,
+          decision,
+          state,
+          eventId,
+          policyReason: policyDecision.reason || 'Action rejected by policy engine.'
+        };
+      }
+
       const actionResult = await this.actionExecutor.execute(decision);
 
       return {
