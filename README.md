@@ -34,7 +34,7 @@ El proyecto utiliza `tsx` para la ejecución de TypeScript en tiempo real.
 
 ## Uso del CLI
 
-El framework proporciona una interfaz de línea de comandos rica que opera en dos modos: "One-off" e "Interactivo", y soporta tanto el modo de kernel nativo (Legacy) como el nuevo motor agéntico (`--agent`).
+El framework proporciona una interfaz de línea de comandos rica que opera en dos modos: "One-off" e "Interactivo", impulsada nativamente por el motor `AgentKernel`.
 
 ### Modo One-off
 Permite ejecutar una única consulta al agente y recibir la respuesta, terminando el proceso de inmediato.
@@ -130,10 +130,9 @@ La arquitectura desacopla estrictamente la interfaz de la lógica agnóstica:
    - Resuelve las dependencias (ej: instanciar `OpenAIAdapter`).
    - Mantiene la sesión interactiva.
 2. **`core/` (Núcleo de Dominio):**
-   - **Kernel:** El motor central (`Kernel.ts`) que orquesta el flujo de ejecución.
-   - **ContextFactory:** Entidad que unifica la entrada y metadatos.
+   - **AgentKernel:** El motor central (`AgentKernel.ts`) que orquesta el flujo de ejecución y decisiones agénticas.
+   - **ContextBuilder & PromptBuilder:** Construyen el entorno conversacional histórico.
    - **LLMAdapters:** Interfaz común para comunicarse con modelos AI.
-   - **ResponseNormalizer:** Tipifica y homogeniza respuestas (texto o error).
 
 ## Capacidades
 
@@ -142,10 +141,10 @@ La arquitectura desacopla estrictamente la interfaz de la lógica agnóstica:
 - Inyección dinámica de adaptadores de LLM (`mock`, `openai`).
 - Parseo profundo de parámetros y aislamiento posicional de texto.
 - Manejo limpio de errores controlados (`FrameworkError` con validación estricta de códigos como `VALIDATION_ERROR`, `CONFIG_ERROR`).
-- Soporte temprano del nuevo **Agente** (`AgentKernel`) con integración a `MemoryReader` y `EventLogFactory` para contexto histórico.
+- Motor de **Agente** (`AgentKernel`) nativo con integración a `MemoryReader` y `EventLogFactory` para contexto histórico.
 - Suite extensa de Unit Tests (Vitest) para todos los componentes, garantizando un build reproducible (`npm test` y `npm run typecheck`).
 - File System de Workspaces con validación de seguridad contra Path Traversal integrada (`ProjectDirectoryAdapter`).
 
 ### 🚧 Simuladas o Pendientes
-- **Manejo de Sesiones:** El comando `/session` notifica que la persistencia puramente de sesión interactiva aún no está operativa en modo legacy.
+- **Manejo de Sesiones:** El comando `/session` es una simulación actualmente.
 - **Módulos Agénticos Avanzados:** La estructura base para `flow`, `routing`, `skills`, `tools` existe en `core/`, pero aguarda implementaciones concretas de herramientas de lectura de disco o auto-corrección (roadmap futuro).

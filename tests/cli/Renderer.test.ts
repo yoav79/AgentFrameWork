@@ -36,23 +36,7 @@ describe('Renderer', () => {
     expect(logSpy).toHaveBeenCalledWith('Hello world');
   });
 
-  it('should render FrameworkResponse message as content', () => {
-    renderer.renderResponse({ type: 'message', content: 'hola' });
-    expect(logSpy).toHaveBeenCalledWith('hola');
-  });
 
-  it('should render FrameworkResponse error with controlled error output', () => {
-    renderer.renderResponse({ type: 'error', content: 'Fallo' });
-    expect(errorSpy).toHaveBeenCalled();
-    expect(errorSpy.mock.calls[0][0]).toContain('Fallo');
-  });
-
-  it('should render FrameworkResponse approval_required with label', () => {
-    renderer.renderResponse({ type: 'approval_required', content: '¿Aceptas?' });
-    expect(logSpy).toHaveBeenCalled();
-    expect(logSpy.mock.calls[0][0]).toContain('Approval required:');
-    expect(logSpy.mock.calls[0][0]).toContain('¿Aceptas?');
-  });
 
   it('should maintain JSON fallback for unknown objects', () => {
     renderer.renderResponse({ type: 'unknown_type', algo: 1 });

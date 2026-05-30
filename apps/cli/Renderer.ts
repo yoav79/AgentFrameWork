@@ -69,20 +69,7 @@ Examples:
       return;
     }
 
-    if (response && typeof response === 'object' && typeof response.type === 'string' && typeof response.content === 'string') {
-      if (response.type === 'message') {
-        console.log(response.content);
-        return;
-      }
-      if (response.type === 'error') {
-        this.renderError(new Error(response.content), false);
-        return;
-      }
-      if (response.type === 'approval_required') {
-        console.log(`\x1b[36mApproval required:\x1b[0m ${response.content}`);
-        return;
-      }
-    }
+
 
     console.log(JSON.stringify(response, null, 2));
   }
