@@ -7,8 +7,9 @@
         "test": "tests"
     },
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
-        "dev": "tsx --env-file=.env apps/cli/cli.ts"
+        "test": "vitest run",
+        "dev": "tsx --env-file=.env apps/cli/cli.ts",
+        "typecheck": "tsc --noEmit"
     },
     "repository": {
         "type": "git",
@@ -26,7 +27,8 @@
         "@types/node": "^25.9.1",
         "esbuild": "^0.28.0",
         "tsx": "^4.22.3",
-        "typescript": "^6.0.3"
+        "typescript": "^6.0.3",
+        "vitest": "^4.1.7"
     },
     "dependencies": {
         "openai": "^6.39.1"
