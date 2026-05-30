@@ -42,9 +42,9 @@ describe('FileEventLog', () => {
     const recovered = log2.getAll();
     
     expect(recovered.length).toBe(1);
-    expect(recovered[0].id).toBe('1');
-    expect(recovered[0].timestamp).toBeInstanceOf(Date);
-    expect(recovered[0].timestamp.toISOString()).toBe('2026-05-30T10:00:00.000Z');
+    expect(recovered[0]!.id).toBe('1');
+    expect(recovered[0]!.timestamp).toBeInstanceOf(Date);
+    expect(recovered[0]!.timestamp.toISOString()).toBe('2026-05-30T10:00:00.000Z');
   });
 
   it('maintains order of events', () => {
@@ -53,8 +53,8 @@ describe('FileEventLog', () => {
     log.append({ id: '2', type: EventType.UserMessageReceived, source: EventSource.USER, timestamp: new Date(), payload: {} });
     
     const events = log.getAll();
-    expect(events[0].id).toBe('1');
-    expect(events[1].id).toBe('2');
+    expect(events[0]!.id).toBe('1');
+    expect(events[1]!.id).toBe('2');
   });
 
   it('rejects malformed events', () => {

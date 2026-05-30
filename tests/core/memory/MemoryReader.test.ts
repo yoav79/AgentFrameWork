@@ -70,7 +70,7 @@ describe('MemoryReader', () => {
     const reader = new MemoryReader(log);
     const history = reader.read();
 
-    expect(history.recentUserMessages[0].length).toBe(503); // 500 + '...'
-    expect(history.recentUserMessages[0].endsWith('...')).toBe(true);
+    expect(history.recentUserMessages[0]!.length).toBe(503); // 500 + '...'
+    expect(history.recentUserMessages[0]!.endsWith('...')).toBe(true);
   });
 });

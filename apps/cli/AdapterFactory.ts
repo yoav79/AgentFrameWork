@@ -13,18 +13,18 @@ export class AdapterFactory {
     for (let i = 0; i < args.length; i++) {
       const arg = args[i];
       if (arg === '--llm') {
-        provider = args[++i];
+        provider = args[++i]!;
       } else if (arg === '--api-key') {
         apiKey = args[++i];
       } else if (arg === '--model') {
-        model = args[++i];
+        model = args[++i]!;
       }
     }
 
     if (provider === 'mock') {
       const config = ConfigFactory.createDefault();
       const mockLlm = new MockLLMAdapter();
-      mockLlm.setResponse({ content: config.mockResponse || 'Mock LLM response' });
+      mockLlm.setResponse({ content: (config as unknown as Record<string, unknown>).mockResponse as string || 'Mock LLM response' });
       return mockLlm;
     }
 

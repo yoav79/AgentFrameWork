@@ -24,9 +24,9 @@ describe('Kernel', () => {
     
     const calls = mockLlm.getCalls();
     expect(calls.length).toBe(1);
-    expect(calls[0].messages.length).toBe(1);
-    expect(calls[0].messages[0].role).toBe('user');
-    expect(calls[0].messages[0].content).toBe('di hola');
+    expect(calls[0]!.messages.length).toBe(1);
+    expect(calls[0]!.messages[0]!.role).toBe('user');
+    expect(calls[0]!.messages[0]!.content).toBe('di hola');
   });
 
   it('should return error response if LLM throws', async () => {

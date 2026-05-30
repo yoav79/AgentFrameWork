@@ -38,8 +38,8 @@ describe('InMemoryEventLog', () => {
     eventLog.append(event2);
 
     const all = eventLog.getAll();
-    expect(all[0].id).toBe('1');
-    expect(all[1].id).toBe('2');
+    expect(all[0]!.id).toBe('1');
+    expect(all[1]!.id).toBe('2');
   });
 
   it('should not expose the internal mutable array reference via getAll', () => {
@@ -50,7 +50,7 @@ describe('InMemoryEventLog', () => {
     all.push({ id: 'mutated', type: 't', source: 's', timestamp: new Date(), payload: {} });
 
     expect(eventLog.getAll()).toHaveLength(1);
-    expect(eventLog.getAll()[0].id).toBe('1');
+    expect(eventLog.getAll()[0]!.id).toBe('1');
   });
 
   it('should reject event without id', () => {

@@ -34,7 +34,7 @@ describe('OpenAIAdapter', () => {
     });
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
-    const calledParams = mockCreate.mock.calls[0][0];
+    const calledParams = mockCreate.mock.calls[0]![0];
     
     expect(calledParams.model).toBe('gpt-4o');
     expect(calledParams.input).toEqual([

@@ -112,7 +112,7 @@ export class CommandHandler {
     const positional: string[] = [];
 
     for (let i = 0; i < args.length; i++) {
-      const arg = args[i];
+      const arg = args[i]!;
       if (arg === '--help') {
         result.help = true;
       } else if (arg === '--version') {

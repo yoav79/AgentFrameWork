@@ -8,7 +8,7 @@ describe('ConfigFactory', () => {
 
     expect(config1).toBeDefined();
     expect(config1.llmProvider).toBe('mock');
-    expect(config1.mockResponse).toBe('Mock LLM response');
+    expect(config1).toHaveProperty('mockResponse', 'Mock LLM response');
 
     // Ensure createDefault does not return shared mutable state.
     expect(config1).not.toBe(config2);

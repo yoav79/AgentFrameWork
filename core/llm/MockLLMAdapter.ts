@@ -34,7 +34,7 @@ export class MockLLMAdapter implements LLMAdapter {
     if (this.calls.length === 0) {
       return null;
     }
-    return this.calls[this.calls.length - 1];
+    return this.calls[this.calls.length - 1] || null;
   }
 
   public clearCalls(): void {

@@ -31,7 +31,7 @@ describe('PolicyEngine', () => {
   it('permits none regardless of confidence', () => {
     const engine = new PolicyEngine();
     const decision: Decision = {
-      intent: 'ignore',
+      intent: 'unknown' as const,
       confidence: 0.1, // very low
       proposedAction: { type: 'none', payload: {} }
     };
@@ -42,10 +42,10 @@ describe('PolicyEngine', () => {
 
   it('rejects unknown action type with critical severity', () => {
     const engine = new PolicyEngine();
-    const decision: Decision = {
-      intent: 'delete',
+    const decision = {
+      intent: 'unknown' as const,
       confidence: 0.9,
-      proposedAction: { type: 'delete_files', payload: {} }
+      proposedAction: { type: 'delete_files' as any, payload: {} }
     };
     const result = engine.evaluate(decision);
     expect(result.allowed).toBe(false);

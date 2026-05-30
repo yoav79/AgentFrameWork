@@ -33,7 +33,7 @@ describe('CommandHandler Integration', () => {
     await handler.execute();
 
     expect(runSpy).toHaveBeenCalled();
-    const contextArg = runSpy.mock.calls[0][0];
+    const contextArg = runSpy.mock.calls[0]![0];
     expect(contextArg.input).toBe('hello');
     
     expect(consoleSpy).toHaveBeenCalledWith('Test response');
@@ -52,7 +52,7 @@ describe('CommandHandler Integration', () => {
     await handler.execute();
 
     expect(runSpy).toHaveBeenCalled();
-    const contextArg = runSpy.mock.calls[0][0];
+    const contextArg = runSpy.mock.calls[0]![0];
     expect(contextArg.input).toBe('hello');
     expect(contextArg.projectId).toBe('p1');
 
@@ -70,7 +70,7 @@ describe('CommandHandler Integration', () => {
     await handler.execute();
 
     expect(runSpy).toHaveBeenCalled();
-    const contextArg = runSpy.mock.calls[0][0];
+    const contextArg = runSpy.mock.calls[0]![0];
     expect(contextArg.input).toBe('hello world');
 
     runSpy.mockRestore();
@@ -87,7 +87,7 @@ describe('CommandHandler Integration', () => {
     await handler.execute();
 
     expect(runSpy).toHaveBeenCalled();
-    const contextArg = runSpy.mock.calls[0][0];
+    const contextArg = runSpy.mock.calls[0]![0];
     expect(contextArg.input).toBe('hello');
     expect(contextArg.sessionId).toBe('s1');
 
@@ -107,7 +107,7 @@ describe('CommandHandler Integration', () => {
     await handler.execute();
     
     expect(consoleErrorSpy).toHaveBeenCalled();
-    expect(consoleErrorSpy.mock.calls[0][0]).toContain('Kernel crashed');
+    expect(consoleErrorSpy.mock.calls[0]![0]).toContain('Kernel crashed');
     
     consoleErrorSpy.mockRestore();
   });
@@ -139,7 +139,7 @@ describe('CommandHandler Integration', () => {
 
     expect(runSpy).not.toHaveBeenCalled();
     expect(consoleErrorSpy).toHaveBeenCalled();
-    expect(consoleErrorSpy.mock.calls[0][0]).toContain('Execution context input cannot be empty.');
+    expect(consoleErrorSpy.mock.calls[0]![0]).toContain('Execution context input cannot be empty.');
 
     runSpy.mockRestore();
     consoleErrorSpy.mockRestore();

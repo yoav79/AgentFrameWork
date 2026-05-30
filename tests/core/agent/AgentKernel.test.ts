@@ -66,10 +66,10 @@ describe('AgentKernel', () => {
     
     const events = eventLog.getAll();
     expect(events.length).toBe(2);
-    expect(events[0].type).toBe(EventType.UserMessageReceived);
-    expect(events[0].payload).toMatchObject({ message: 'hello agent', projectId: 'proj-1' });
-    expect(events[1].type).toBe(EventType.ActionExecuted);
-    expect(events[1].payload).toMatchObject({ actionType: 'send_message', success: true });
+    expect(events[0]!.type).toBe(EventType.UserMessageReceived);
+    expect(events[0]!.payload).toMatchObject({ message: 'hello agent', projectId: 'proj-1' });
+    expect(events[1]!.type).toBe(EventType.ActionExecuted);
+    expect(events[1]!.payload).toMatchObject({ actionType: 'send_message', success: true });
   });
 
   it('should propagate ActionExecutor failure as success: false without throwing', async () => {
@@ -99,8 +99,8 @@ describe('AgentKernel', () => {
     
     const events = eventLog.getAll();
     expect(events.length).toBe(2);
-    expect(events[1].type).toBe(EventType.ActionFailed);
-    expect(events[1].payload).toMatchObject({ actionType: 'send_message' });
+    expect(events[1]!.type).toBe(EventType.ActionFailed);
+    expect(events[1]!.payload).toMatchObject({ actionType: 'send_message' });
   });
 
   it('should return controlled failure if LLM returns invalid JSON', async () => {
@@ -139,8 +139,8 @@ describe('AgentKernel', () => {
     
     const events = kernel['eventLog'].getAll();
     expect(events.length).toBe(2);
-    expect(events[1].type).toBe(EventType.PolicyRejected);
-    expect(events[1].payload).toMatchObject({ actionType: 'send_message', confidence: 0.1 });
+    expect(events[1]!.type).toBe(EventType.PolicyRejected);
+    expect(events[1]!.payload).toMatchObject({ actionType: 'send_message', confidence: 0.1 });
   });
 
   it('should abort execution and return false if policy rejects due to unknown action', async () => {
@@ -167,8 +167,8 @@ describe('AgentKernel', () => {
     
     const events = kernel['eventLog'].getAll();
     expect(events.length).toBe(2);
-    expect(events[1].type).toBe(EventType.PolicyRejected);
-    expect(events[1].payload).toMatchObject({ actionType: 'format_disk' });
+    expect(events[1]!.type).toBe(EventType.PolicyRejected);
+    expect(events[1]!.payload).toMatchObject({ actionType: 'format_disk' });
   });
 
   it('should use MemoryReader if provided and pass history to ContextBuilder', async () => {
