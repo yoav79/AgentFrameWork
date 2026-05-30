@@ -95,7 +95,7 @@ describe('AgentKernel', () => {
 
     const result = await kernel.run({ input: 'hello' });
     expect(result.success).toBe(false);
-    expect(result.error).toContain('No compatible skill found');
+    expect(result.error).toContain('No compatible skill');
     
     const events = eventLog.getAll();
     expect(events.length).toBe(2);

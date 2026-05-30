@@ -4,6 +4,9 @@ import { SkillRegistry } from '../../../core/skills/SkillRegistry';
 import { Skill } from '../../../core/skills/Skill';
 import { SkillResult } from '../../../core/skills/SkillResult';
 import { Decision } from '../../../core/schemas/Decision';
+import { ToolRegistry } from '../../../core/tools/ToolRegistry';
+import { Tool } from '../../../core/tools/Tool';
+import { ToolResult } from '../../../core/tools/ToolResult';
 
 class SyncSkill implements Skill {
   name = 'SyncSkill';
@@ -29,6 +32,24 @@ class ThrowingSkill implements Skill {
   canHandle(type: string) { return type === 'throw_action'; }
   execute(): SkillResult {
     throw new Error('Kaboom!');
+  }
+}
+
+class DummyTool implements Tool {
+  name = 'DummyTool';
+  description = 'Tool desc';
+  canHandle(type: string) { return type === 'tool_action'; }
+  execute(input: unknown): ToolResult {
+    return { success: true, message: 'Tool success', data: input as Record<string, unknown> };
+  }
+}
+
+class ThrowingTool implements Tool {
+  name = 'ThrowingTool';
+  description = 'Tool desc';
+  canHandle(type: string) { return type === 'throw_tool_action'; }
+  execute(): ToolResult {
+    throw new Error('Tool Kaboom!');
   }
 }
 
@@ -60,7 +81,7 @@ describe('ActionExecutor', () => {
 
     const result = await executor.execute(decision);
     expect(result.success).toBe(false);
-    expect(result.error).toContain('No compatible skill found');
+    expect(result.error).toContain('No compatible skill');
   });
 
   it('should execute a synchronous skill and pass the payload', async () => {
@@ -110,5 +131,84 @@ describe('ActionExecutor', () => {
     const result = await executor.execute(decision);
     expect(result.success).toBe(false);
     expect(result.error).toContain('Kaboom!');
+  });
+
+  it('should execute Tool if no Skill is found', async () => {
+    const registry = new SkillRegistry(); // Empty skill registry
+    const toolRegistry = new ToolRegistry();
+    toolRegistry.register(new DummyTool());
+    const executor = new ActionExecutor(registry, toolRegistry);
+    
+    const decision: Decision = {
+      intent: 'respond',
+      confidence: 1,
+      proposedAction: { type: 'tool_action', payload: 'tool_input' } as any
+    };
+
+    const result = await executor.execute(decision);
+    expect(result.success).toBe(true);
+    expect(result.message).toBe('Tool success');
+    expect(result.data).toBe('tool_input');
+  });
+
+  it('should prioritize Skill over Tool if both can handle the action', async () => {
+    const registry = new SkillRegistry();
+    registry.register(new SyncSkill()); // can handle 'sync_action'
+    
+    class ConflictingTool implements Tool {
+      name = 'ConflictingTool';
+      description = '';
+      canHandle(type: string) { return type === 'sync_action'; }
+      execute(): ToolResult {
+        return { success: false, message: 'Tool executed instead of skill' };
+      }
+    }
+    
+    const toolRegistry = new ToolRegistry();
+    toolRegistry.register(new ConflictingTool());
+    const executor = new ActionExecutor(registry, toolRegistry);
+    
+    const decision: Decision = {
+      intent: 'respond',
+      confidence: 1,
+      proposedAction: { type: 'sync_action', payload: 'sync_input' } as any
+    };
+
+    const result = await executor.execute(decision);
+    expect(result.success).toBe(true);
+    expect(result.data?.payloadReceived).toBe('sync_input'); // Matches SyncSkill, not ConflictingTool
+  });
+
+  it('should return error if neither Skill nor Tool can handle the action', async () => {
+    const registry = new SkillRegistry();
+    const toolRegistry = new ToolRegistry();
+    const executor = new ActionExecutor(registry, toolRegistry);
+    
+    const decision: Decision = {
+      intent: 'respond',
+      confidence: 1,
+      proposedAction: { type: 'unknown_action' } as any
+    };
+
+    const result = await executor.execute(decision);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('No compatible skill or tool found');
+  });
+
+  it('should capture exceptions from tools and return controlled error', async () => {
+    const registry = new SkillRegistry();
+    const toolRegistry = new ToolRegistry();
+    toolRegistry.register(new ThrowingTool());
+    const executor = new ActionExecutor(registry, toolRegistry);
+    
+    const decision: Decision = {
+      intent: 'respond',
+      confidence: 1,
+      proposedAction: { type: 'throw_tool_action' } as any
+    };
+
+    const result = await executor.execute(decision);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Tool Kaboom!');
   });
 });

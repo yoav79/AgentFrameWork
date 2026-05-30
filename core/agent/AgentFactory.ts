@@ -10,6 +10,7 @@ import { SendMessageSkill } from '../skills/SendMessageSkill';
 import { ActionExecutor } from '../flow/ActionExecutor';
 import { PolicyEngine } from '../policy/PolicyEngine';
 import { MemoryReader } from '../memory/MemoryReader';
+import { ToolRegistry } from '../tools/ToolRegistry';
 
 export class AgentFactory {
   public static create(llmAdapter: LLMAdapter, options?: EventLogFactoryOptions): AgentKernel {
@@ -24,7 +25,9 @@ export class AgentFactory {
     const skillRegistry = new SkillRegistry();
     skillRegistry.register(new SendMessageSkill());
     
-    const actionExecutor = new ActionExecutor(skillRegistry);
+    const toolRegistry = new ToolRegistry();
+    
+    const actionExecutor = new ActionExecutor(skillRegistry, toolRegistry);
 
     return new AgentKernel(
       eventLog,
