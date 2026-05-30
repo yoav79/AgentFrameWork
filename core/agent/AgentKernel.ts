@@ -70,6 +70,19 @@ export class AgentKernel {
       
       const policyDecision = this.policyEngine.evaluate(decision);
       if (!policyDecision.allowed) {
+        this.eventLog.append({
+          id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+          type: EventType.PolicyRejected,
+          source: EventSource.SYSTEM,
+          timestamp: new Date(),
+          payload: {
+            reason: policyDecision.reason || 'Action rejected by policy engine.',
+            severity: policyDecision.severity,
+            actionType: decision.proposedAction?.type,
+            confidence: decision.confidence
+          }
+        });
+
         return {
           success: false,
           decision,
@@ -80,6 +93,31 @@ export class AgentKernel {
       }
 
       const actionResult = await this.actionExecutor.execute(decision);
+      
+      if (actionResult.success) {
+        this.eventLog.append({
+          id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+          type: EventType.ActionExecuted,
+          source: EventSource.SYSTEM,
+          timestamp: new Date(),
+          payload: {
+            actionType: decision.proposedAction?.type || 'unknown',
+            success: true,
+            message: actionResult.message
+          }
+        });
+      } else {
+        this.eventLog.append({
+          id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+          type: EventType.ActionFailed,
+          source: EventSource.SYSTEM,
+          timestamp: new Date(),
+          payload: {
+            actionType: decision.proposedAction?.type || 'unknown',
+            error: actionResult.error || 'Action execution failed'
+          }
+        });
+      }
 
       return {
         success: actionResult.success,

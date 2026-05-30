@@ -10,6 +10,7 @@ import { LLMAdapter } from '../../../core/llm/LLMAdapter';
 import { SkillRegistry } from '../../../core/skills/SkillRegistry';
 import { Skill } from '../../../core/skills/Skill';
 import { PolicyEngine } from '../../../core/policy/PolicyEngine';
+import { EventType } from '../../../core/events/EventType';
 
 class MockLLMAdapter implements LLMAdapter {
   constructor(public responseContent: string) {}
@@ -62,8 +63,11 @@ describe('AgentKernel', () => {
     expect(result.eventId).toBeDefined();
     
     const events = eventLog.getAll();
-    expect(events.length).toBe(1);
+    expect(events.length).toBe(2);
+    expect(events[0].type).toBe(EventType.UserMessageReceived);
     expect(events[0].payload).toMatchObject({ message: 'hello agent', projectId: 'proj-1' });
+    expect(events[1].type).toBe(EventType.ActionExecuted);
+    expect(events[1].payload).toMatchObject({ actionType: 'send_message', success: true });
   });
 
   it('should propagate ActionExecutor failure as success: false without throwing', async () => {
@@ -90,6 +94,11 @@ describe('AgentKernel', () => {
     const result = await kernel.run({ input: 'hello' });
     expect(result.success).toBe(false);
     expect(result.error).toContain('No compatible skill found');
+    
+    const events = eventLog.getAll();
+    expect(events.length).toBe(2);
+    expect(events[1].type).toBe(EventType.ActionFailed);
+    expect(events[1].payload).toMatchObject({ actionType: 'send_message' });
   });
 
   it('should return controlled failure if LLM returns invalid JSON', async () => {
@@ -125,6 +134,11 @@ describe('AgentKernel', () => {
     expect(result.success).toBe(false);
     expect(result.policyReason).toContain('below the required threshold');
     expect(result.error).toBeUndefined(); // Should use policyReason, not error
+    
+    const events = kernel['eventLog'].getAll();
+    expect(events.length).toBe(2);
+    expect(events[1].type).toBe(EventType.PolicyRejected);
+    expect(events[1].payload).toMatchObject({ actionType: 'send_message', confidence: 0.1 });
   });
 
   it('should abort execution and return false if policy rejects due to unknown action', async () => {
@@ -148,5 +162,10 @@ describe('AgentKernel', () => {
     expect(result.success).toBe(false);
     expect(result.policyReason).toContain('is unknown or not permitted');
     expect(result.error).toBeUndefined();
+    
+    const events = kernel['eventLog'].getAll();
+    expect(events.length).toBe(2);
+    expect(events[1].type).toBe(EventType.PolicyRejected);
+    expect(events[1].payload).toMatchObject({ actionType: 'format_disk' });
   });
 });

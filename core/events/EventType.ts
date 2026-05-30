@@ -1,3 +1,6 @@
 export enum EventType {
-  UserMessageReceived = 'UserMessageReceived'
+  UserMessageReceived = 'UserMessageReceived',
+  PolicyRejected = 'PolicyRejected',
+  ActionExecuted = 'ActionExecuted',
+  ActionFailed = 'ActionFailed'
 }
