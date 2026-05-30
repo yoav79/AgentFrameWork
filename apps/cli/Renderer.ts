@@ -59,11 +59,14 @@ Examples:
     // Handle AgentRunResult
     if (response && typeof response === 'object' && response.success !== undefined) {
       if (!response.success) {
-        this.renderError(new Error(response.error || 'Agent execution failed'), false);
+        this.renderError(new Error(response.error || response.policyReason || 'Agent execution failed'), false);
         return;
       }
       if (response.result && response.result.message) {
         console.log(`\x1b[32m[Agent]\x1b[0m ${response.result.message}`);
+        if (response.result.data && response.result.data.content) {
+          console.log(`\n\x1b[90m--- Archivo: ${response.result.data.path || 'Contenido'} ---\x1b[0m\n${response.result.data.content}\n\x1b[90m----------------------\x1b[0m`);
+        }
         return;
       }
       // Fallback for AgentRunResult if no message

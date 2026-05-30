@@ -17,14 +17,15 @@ Last User Message:
 
 
 You MUST respond strictly with a valid JSON object matching the following TypeScript interface. Do not include markdown formatting or additional text.
+If the user asks you to read a file, you MUST use the 'read_file' action and set intent to 'respond'. If the user asks a question or you want to reply, use 'send_message'.
 
 \`\`\`typescript
 interface Decision {
   intent: 'respond' | 'unknown';
   confidence: number;
   proposedAction: {
-    type: 'send_message' | 'none';
-    payload?: Record<string, unknown>;
+    type: 'send_message' | 'none' | 'read_file';
+    payload?: Record<string, unknown>; // For read_file, include { "path": "filename.ext" }. For send_message, include { "message": "..." }
   };
   reasoning?: string;
 }
