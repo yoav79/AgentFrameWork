@@ -10,6 +10,7 @@ import { Decision } from '../schemas/Decision';
 import { SkillResult } from '../skills/SkillResult';
 import { State } from '../state/State';
 import { PolicyEngine } from '../policy/PolicyEngine';
+import { MemoryReader } from '../memory/MemoryReader';
 
 export interface AgentRunInput {
   input: string;
@@ -36,7 +37,8 @@ export class AgentKernel {
     private readonly llmAdapter: LLMAdapter,
     private readonly decisionParser: DecisionParser,
     private readonly policyEngine: PolicyEngine,
-    private readonly actionExecutor: ActionExecutor
+    private readonly actionExecutor: ActionExecutor,
+    private readonly memoryReader?: MemoryReader
   ) {}
 
   public async run(input: AgentRunInput): Promise<AgentRunResult> {
@@ -59,7 +61,17 @@ export class AgentKernel {
       const events = this.eventLog.getAll();
       const state = this.stateResolver.resolve(events);
 
-      const context = this.contextBuilder.build(state);
+      let history;
+      if (this.memoryReader) {
+        try {
+          history = this.memoryReader.read();
+        } catch (e) {
+          // Tolerancia a fallos: degradación sin memoria
+          console.warn('MemoryReader failed, proceeding without history', e);
+        }
+      }
+
+      const context = this.contextBuilder.build(state, history);
       const prompt = this.promptBuilder.build(context);
 
       const llmResult = await this.llmAdapter.generate({

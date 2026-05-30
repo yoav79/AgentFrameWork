@@ -9,6 +9,7 @@ import { SkillRegistry } from '../skills/SkillRegistry';
 import { SendMessageSkill } from '../skills/SendMessageSkill';
 import { ActionExecutor } from '../flow/ActionExecutor';
 import { PolicyEngine } from '../policy/PolicyEngine';
+import { MemoryReader } from '../memory/MemoryReader';
 
 export class AgentFactory {
   public static create(llmAdapter: LLMAdapter, options?: EventLogFactoryOptions): AgentKernel {
@@ -18,6 +19,7 @@ export class AgentFactory {
     const promptBuilder = new PromptBuilder();
     const decisionParser = new DecisionParser();
     const policyEngine = new PolicyEngine();
+    const memoryReader = new MemoryReader(eventLog);
     
     const skillRegistry = new SkillRegistry();
     skillRegistry.register(new SendMessageSkill());
@@ -32,7 +34,8 @@ export class AgentFactory {
       llmAdapter,
       decisionParser,
       policyEngine,
-      actionExecutor
+      actionExecutor,
+      memoryReader
     );
   }
 }

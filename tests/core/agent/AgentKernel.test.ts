@@ -11,6 +11,8 @@ import { SkillRegistry } from '../../../core/skills/SkillRegistry';
 import { Skill } from '../../../core/skills/Skill';
 import { PolicyEngine } from '../../../core/policy/PolicyEngine';
 import { EventType } from '../../../core/events/EventType';
+import { MemoryReader } from '../../../core/memory/MemoryReader';
+import { HistoryContext } from '../../../core/memory/HistoryContext';
 
 class MockLLMAdapter implements LLMAdapter {
   constructor(public responseContent: string) {}
@@ -167,5 +169,45 @@ describe('AgentKernel', () => {
     expect(events.length).toBe(2);
     expect(events[1].type).toBe(EventType.PolicyRejected);
     expect(events[1].payload).toMatchObject({ actionType: 'format_disk' });
+  });
+
+  it('should use MemoryReader if provided and pass history to ContextBuilder', async () => {
+    const eventLog = new InMemoryEventLog();
+    const stateResolver = new StateResolver();
+    const contextBuilder = new ContextBuilder();
+    const promptBuilder = new PromptBuilder();
+    
+    const validJson = JSON.stringify({
+      intent: 'respond',
+      confidence: 1,
+      proposedAction: { type: 'send_message', payload: { message: 'hello' } }
+    });
+    const llmAdapter = new MockLLMAdapter(validJson);
+    
+    const decisionParser = new DecisionParser();
+    const policyEngine = new PolicyEngine();
+    const actionExecutor = new ActionExecutor(new SkillRegistry());
+
+    const mockHistory: HistoryContext = {
+      recentUserMessages: ['mocked msg'],
+      recentActions: [],
+      recentPolicyRejections: [],
+      eventCount: 1
+    };
+
+    const memoryReader = new MemoryReader(eventLog);
+    // Mock the read method
+    memoryReader.read = () => mockHistory;
+
+    const kernel = new AgentKernel(
+      eventLog, stateResolver, contextBuilder, promptBuilder,
+      llmAdapter, decisionParser, policyEngine, actionExecutor, memoryReader
+    );
+
+    await kernel.run({ input: 'hello' });
+    
+    // We check that the prompt string contains the mocked msg, proving integration
+    const finalPrompt = kernel['promptBuilder'].build(kernel['contextBuilder'].build(stateResolver.resolve([]), mockHistory));
+    expect(finalPrompt).toContain('mocked msg');
   });
 });

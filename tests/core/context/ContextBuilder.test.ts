@@ -14,7 +14,8 @@ describe('ContextBuilder', () => {
       sessionId: undefined,
       messageCount: 0,
       lastEventId: undefined,
-      updatedAt: undefined
+      updatedAt: undefined,
+      history: undefined
     });
   });
 
@@ -32,5 +33,20 @@ describe('ContextBuilder', () => {
     expect(context.projectId).toBe('proj-1');
     expect(context.sessionId).toBe('sess-1');
     expect(context.messageCount).toBe(5);
+  });
+
+  it('should include history if provided', () => {
+    const builder = new ContextBuilder();
+    const state: State = { messageCount: 0 };
+    const history = {
+      recentUserMessages: ['msg1'],
+      recentActions: [],
+      recentPolicyRejections: [],
+      eventCount: 1
+    };
+    const context = builder.build(state, history);
+    
+    expect(context.history).toBeDefined();
+    expect(context.history?.recentUserMessages).toContain('msg1');
   });
 });
