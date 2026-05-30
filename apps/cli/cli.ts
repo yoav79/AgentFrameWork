@@ -3,6 +3,7 @@ import { CommandHandler } from './CommandHandler';
 import { Renderer } from './Renderer';
 import { AdapterFactory } from './AdapterFactory';
 import { Kernel } from '../../core/kernel/Kernel';
+import { AgentFactory } from '../../core/agent/AgentFactory';
 
 async function bootstrap() {
   const args = process.argv.slice(2);
@@ -18,7 +19,10 @@ async function bootstrap() {
   
   const kernel = new Kernel({ llm: llmAdapter });
   
-  const handler = new CommandHandler(args, kernel);
+  const isAgentMode = args.includes('--agent');
+  const agentKernel = isAgentMode ? AgentFactory.create(llmAdapter) : undefined;
+  
+  const handler = new CommandHandler(args, kernel, undefined, agentKernel);
   
   try {
     await handler.execute();

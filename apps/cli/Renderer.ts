@@ -2,6 +2,7 @@ export class Renderer {
   public renderHelp(hasWorkspace: boolean = true): void {
     const flagsHelp = `
 Flags (Startup Options):
+  --agent                Use new Agent mode (legacy mode is default without this flag)
   --llm <provider>       LLM Provider (mock, openai). Default: mock
   --model <model>        Model ID. Default for openai: gpt-4o-mini
   --api-key <key>        OpenAI API Key (required for openai provider). Recommendation: use $OPENAI_API_KEY environment variable if possible
@@ -49,6 +50,21 @@ Examples:
   public renderResponse(response: any): void {
     if (typeof response === 'string') {
       console.log(response);
+      return;
+    }
+
+    // Handle AgentRunResult
+    if (response && typeof response === 'object' && response.success !== undefined) {
+      if (!response.success) {
+        this.renderError(new Error(response.error || 'Agent execution failed'), false);
+        return;
+      }
+      if (response.result && response.result.message) {
+        console.log(`\x1b[32m[Agent]\x1b[0m ${response.result.message}`);
+        return;
+      }
+      // Fallback for AgentRunResult if no message
+      console.log(JSON.stringify(response, null, 2));
       return;
     }
 

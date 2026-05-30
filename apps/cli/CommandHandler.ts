@@ -2,6 +2,7 @@ import { Renderer } from './Renderer';
 import { ProjectDirectoryAdapter } from './ProjectDirectoryAdapter';
 import { Kernel } from '../../core/kernel/Kernel';
 import { ContextFactory } from '../../core/context/ContextFactory';
+import { AgentKernel } from '../../core/agent/AgentKernel';
 import { join } from 'path';
 import { readFileSync } from 'fs';
 
@@ -19,12 +20,14 @@ export class CommandHandler {
   private directoryAdapter: ProjectDirectoryAdapter;
   private args: string[];
   private kernel: Kernel;
+  private agentKernel?: AgentKernel;
 
-  constructor(args: string[], kernel: Kernel, directoryAdapter?: ProjectDirectoryAdapter) {
+  constructor(args: string[], kernel: Kernel, directoryAdapter?: ProjectDirectoryAdapter, agentKernel?: AgentKernel) {
     this.renderer = new Renderer();
     this.args = args;
     this.kernel = kernel;
     this.directoryAdapter = directoryAdapter || new ProjectDirectoryAdapter();
+    this.agentKernel = agentKernel;
   }
 
   public async execute(): Promise<void> {
@@ -56,17 +59,33 @@ export class CommandHandler {
       }
 
       try {
-        const context = ContextFactory.create({
-          input: parsedArgs.message,
-          projectId: parsedArgs.projectId,
-          sessionId: parsedArgs.sessionId
-        });
-        
-        if (parsedArgs.debug) {
-          this.renderer.renderDebug('Sending context to kernel', context);
-        }
+        let result;
+        if (this.agentKernel) {
+          if (parsedArgs.debug) {
+            this.renderer.renderDebug('Sending input to agent kernel', {
+              input: parsedArgs.message,
+              projectId: parsedArgs.projectId,
+              sessionId: parsedArgs.sessionId
+            });
+          }
+          result = await this.agentKernel.run({
+            input: parsedArgs.message as string,
+            projectId: parsedArgs.projectId,
+            sessionId: parsedArgs.sessionId
+          });
+        } else {
+          const context = ContextFactory.create({
+            input: parsedArgs.message,
+            projectId: parsedArgs.projectId,
+            sessionId: parsedArgs.sessionId
+          });
+          
+          if (parsedArgs.debug) {
+            this.renderer.renderDebug('Sending context to kernel', context);
+          }
 
-        const result = await this.kernel.run(context);
+          result = await this.kernel.run(context);
+        }
         this.renderer.renderResponse(result);
       } catch (kernelError) {
         this.renderer.renderError(kernelError as Error, parsedArgs.debug);
@@ -96,6 +115,8 @@ export class CommandHandler {
         result.version = true;
       } else if (arg === '--debug') {
         result.debug = true;
+      } else if (arg === '--agent') {
+        // Just flag, don't add to positional
       } else if (arg === '--project') {
         result.projectId = args[++i];
       } else if (arg === '--session') {
@@ -286,17 +307,33 @@ export class CommandHandler {
           }
 
           try {
-            const context = ContextFactory.create({
-              input: inputLine,
-              projectId: parsedArgs.projectId,
-              sessionId: parsedArgs.sessionId
-            });
-            
-            if (parsedArgs.debug) {
-              this.renderer.renderDebug('Sending context to kernel', context);
-            }
+            let result;
+            if (this.agentKernel) {
+              if (parsedArgs.debug) {
+                this.renderer.renderDebug('Sending input to agent kernel', {
+                  input: inputLine,
+                  projectId: parsedArgs.projectId,
+                  sessionId: parsedArgs.sessionId
+                });
+              }
+              result = await this.agentKernel.run({
+                input: inputLine,
+                projectId: parsedArgs.projectId,
+                sessionId: parsedArgs.sessionId
+              });
+            } else {
+              const context = ContextFactory.create({
+                input: inputLine,
+                projectId: parsedArgs.projectId,
+                sessionId: parsedArgs.sessionId
+              });
+              
+              if (parsedArgs.debug) {
+                this.renderer.renderDebug('Sending context to kernel', context);
+              }
 
-            const result = await this.kernel.run(context);
+              result = await this.kernel.run(context);
+            }
             this.renderer.renderResponse(result);
           } catch (error) {
             this.renderer.renderError(error as Error, parsedArgs.debug);
