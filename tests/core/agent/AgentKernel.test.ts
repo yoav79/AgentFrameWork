@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { AgentKernel } from '../../../core/agent/AgentKernel';
 import { InMemoryEventLog } from '../../../core/events/InMemoryEventLog';
 import { StateResolver } from '../../../core/state/StateResolver';
@@ -209,5 +209,49 @@ describe('AgentKernel', () => {
     // We check that the prompt string contains the mocked msg, proving integration
     const finalPrompt = kernel['promptBuilder'].build(kernel['contextBuilder'].build(stateResolver.resolve([]), mockHistory));
     expect(finalPrompt).toContain('mocked msg');
+  });
+
+  it('should maintain conversational memory in interactive mode (two messages)', async () => {
+    const validJson = JSON.stringify({
+      intent: 'respond',
+      confidence: 1,
+      proposedAction: { type: 'send_message', payload: { message: 'hello' } }
+    });
+    const llmAdapter = new MockLLMAdapter(validJson);
+    
+    // Replace generate to spy on the prompt being sent to LLM
+    const generateSpy = vi.spyOn(llmAdapter, 'generate');
+
+    const kernel = new AgentKernel(
+      new InMemoryEventLog(), new StateResolver(), new ContextBuilder(), new PromptBuilder(),
+      llmAdapter, new DecisionParser(), new PolicyEngine(), new ActionExecutor(new SkillRegistry()), new MemoryReader(new InMemoryEventLog()) // Wait, memory reader needs the SAME event log
+    );
+    // Let's re-instantiate properly
+    const eventLog = new InMemoryEventLog();
+    const memoryReader = new MemoryReader(eventLog);
+    const kernelWithMemory = new AgentKernel(
+      eventLog, new StateResolver(), new ContextBuilder(), new PromptBuilder(),
+      llmAdapter, new DecisionParser(), new PolicyEngine(), new ActionExecutor(new SkillRegistry()), memoryReader
+    );
+
+    // Message 1
+    await kernelWithMemory.run({ input: 'me llamo Yoab', sessionId: 's1' });
+
+    // Verify first call
+    expect(generateSpy).toHaveBeenCalledTimes(1);
+    
+    // Message 2
+    await kernelWithMemory.run({ input: 'como me llamo?', sessionId: 's1' });
+
+    // Verify second call
+    expect(generateSpy).toHaveBeenCalledTimes(2);
+    
+    // Extract the prompt passed to the LLM on the second turn
+    const secondCallMessages = (generateSpy.mock.calls as any)[1][0].messages;
+    const systemPrompt = secondCallMessages.find((m: any) => m.role === 'system')?.content || '';
+
+    // Verify prompt contains history and the previous message
+    expect(systemPrompt).toContain('Recent Memory');
+    expect(systemPrompt).toContain('me llamo Yoab');
   });
 });

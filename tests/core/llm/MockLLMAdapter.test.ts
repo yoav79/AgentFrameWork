@@ -14,7 +14,7 @@ describe('MockLLMAdapter', () => {
 
   it('should return a default response when no fixed response or queue is set', async () => {
     const response = await adapter.generate(dummyInput);
-    expect(response.content).toBe('Default mock response');
+    expect(response.content).toContain('Default mock response');
     expect(adapter.getCalls()).toHaveLength(1);
     expect(adapter.getLastCall()).toEqual(dummyInput);
   });
@@ -36,7 +36,7 @@ describe('MockLLMAdapter', () => {
     expect(r2.content).toBe('Second');
     
     const r3 = await adapter.generate(dummyInput);
-    expect(r3.content).toBe('Default mock response');
+    expect(r3.content).toContain('Default mock response');
   });
 
   it('should throw an error if configured', async () => {
@@ -47,7 +47,7 @@ describe('MockLLMAdapter', () => {
     
     adapter.clearError();
     const response = await adapter.generate(dummyInput);
-    expect(response.content).toBe('Default mock response');
+    expect(response.content).toContain('Default mock response');
   });
 
   it('should clear calls', async () => {

@@ -1,7 +1,5 @@
 import { Renderer } from './Renderer';
 import { ProjectDirectoryAdapter } from './ProjectDirectoryAdapter';
-import { Kernel } from '../../core/kernel/Kernel';
-import { ContextFactory } from '../../core/context/ContextFactory';
 import { AgentKernel } from '../../core/agent/AgentKernel';
 import { join } from 'path';
 import { readFileSync } from 'fs';
@@ -19,13 +17,11 @@ export class CommandHandler {
   private renderer: Renderer;
   private directoryAdapter: ProjectDirectoryAdapter;
   private args: string[];
-  private kernel: Kernel;
-  private agentKernel?: AgentKernel;
+  private agentKernel: AgentKernel;
 
-  constructor(args: string[], kernel: Kernel, directoryAdapter?: ProjectDirectoryAdapter, agentKernel?: AgentKernel) {
+  constructor(args: string[], agentKernel: AgentKernel, directoryAdapter?: ProjectDirectoryAdapter) {
     this.renderer = new Renderer();
     this.args = args;
-    this.kernel = kernel;
     this.directoryAdapter = directoryAdapter || new ProjectDirectoryAdapter();
     this.agentKernel = agentKernel;
   }
@@ -44,10 +40,6 @@ export class CommandHandler {
         return;
       }
 
-      if (this.args.includes('--persist') && !this.agentKernel) {
-        console.warn('\x1b[33mWarning: --persist se ignora en el modo Legacy\x1b[0m');
-      }
-
       if (!parsedArgs.message) {
         await this.startInteractiveMode(parsedArgs);
         return;
@@ -64,32 +56,18 @@ export class CommandHandler {
 
       try {
         let result;
-        if (this.agentKernel) {
-          if (parsedArgs.debug) {
-            this.renderer.renderDebug('Sending input to agent kernel', {
-              input: parsedArgs.message,
-              projectId: parsedArgs.projectId,
-              sessionId: parsedArgs.sessionId
-            });
-          }
-          result = await this.agentKernel.run({
-            input: parsedArgs.message as string,
-            projectId: parsedArgs.projectId,
-            sessionId: parsedArgs.sessionId
-          });
-        } else {
-          const context = ContextFactory.create({
+        if (parsedArgs.debug) {
+          this.renderer.renderDebug('Sending input to agent kernel', {
             input: parsedArgs.message,
             projectId: parsedArgs.projectId,
             sessionId: parsedArgs.sessionId
           });
-          
-          if (parsedArgs.debug) {
-            this.renderer.renderDebug('Sending context to kernel', context);
-          }
-
-          result = await this.kernel.run(context);
         }
+        result = await this.agentKernel.run({
+          input: parsedArgs.message as string,
+          projectId: parsedArgs.projectId,
+          sessionId: parsedArgs.sessionId
+        });
         this.renderer.renderResponse(result);
       } catch (kernelError) {
         this.renderer.renderError(kernelError as Error, parsedArgs.debug);
@@ -314,32 +292,18 @@ export class CommandHandler {
 
           try {
             let result;
-            if (this.agentKernel) {
-              if (parsedArgs.debug) {
-                this.renderer.renderDebug('Sending input to agent kernel', {
-                  input: inputLine,
-                  projectId: parsedArgs.projectId,
-                  sessionId: parsedArgs.sessionId
-                });
-              }
-              result = await this.agentKernel.run({
+            if (parsedArgs.debug) {
+              this.renderer.renderDebug('Sending input to agent kernel', {
                 input: inputLine,
                 projectId: parsedArgs.projectId,
                 sessionId: parsedArgs.sessionId
               });
-            } else {
-              const context = ContextFactory.create({
-                input: inputLine,
-                projectId: parsedArgs.projectId,
-                sessionId: parsedArgs.sessionId
-              });
-              
-              if (parsedArgs.debug) {
-                this.renderer.renderDebug('Sending context to kernel', context);
-              }
-
-              result = await this.kernel.run(context);
             }
+            result = await this.agentKernel.run({
+              input: inputLine,
+              projectId: parsedArgs.projectId,
+              sessionId: parsedArgs.sessionId
+            });
             this.renderer.renderResponse(result);
           } catch (error) {
             this.renderer.renderError(error as Error, parsedArgs.debug);

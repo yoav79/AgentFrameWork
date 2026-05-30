@@ -49,11 +49,11 @@ npx tsx apps/cli/cli.ts
 ```
 
 ### Motor Agéntico y Persistencia
-Para invocar al nuevo `AgentKernel` que provee memoria contextual histórica e integración con el `EventLogFactory`, usa la bandera `--agent`. Si deseas persistir los eventos entre ejecuciones (en el disco local dentro de `~/.agentframework` o en la carpeta `projects/`), añade `--persist`.
+El sistema utiliza el `AgentKernel` por defecto, proveyendo memoria contextual histórica e integración con el `EventLogFactory`. Si deseas persistir los eventos entre ejecuciones (en el disco local dentro de `~/.agentframework` o en la carpeta `projects/`), añade `--persist`.
 ```bash
-npx tsx apps/cli/cli.ts --agent --persist
+npx tsx apps/cli/cli.ts --persist
 ```
-*Nota: La bandera `--persist` se ignora de forma segura si no se habilita `--agent`.*
+*Nota: La bandera `--agent` está obsoleta (deprecated) y se mantiene únicamente por compatibilidad sin tener ningún efecto adicional.*
 
 ### Selección de Proveedor LLM
 
@@ -96,8 +96,8 @@ npx tsx apps/cli/cli.ts --llm openai --model gpt-4 "Usa GPT-4"
 | `--api-key <key>` | Clave de acceso para la API de OpenAI. Alternativamente, usar `OPENAI_API_KEY`. | N/A |
 | `--project <id>` | ID del proyecto/workspace a usar en el contexto. Sujeto a reglas de seguridad. | N/A |
 | `--session <id>` | ID de la sesión a utilizar. | N/A |
-| `--agent` | Habilita el `AgentKernel` con soporte de memoria histórica y eventos. | `false` |
-| `--persist` | Habilita la persistencia de memoria en el sistema de archivos (solo con `--agent`). | `false` |
+| `--agent` | (Obsoleto) Alias sin efecto. `AgentKernel` es ahora el predeterminado. | N/A |
+| `--persist` | Habilita la persistencia de memoria en el sistema de archivos. | `false` |
 | `--debug` | Habilita la impresión de mensajes de depuración en consola. | `false` |
 | `--help` | Muestra la ayuda estática. | N/A |
 | `--version` | Muestra la versión actual del `package.json`. | N/A |

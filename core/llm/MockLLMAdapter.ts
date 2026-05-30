@@ -22,7 +22,14 @@ export class MockLLMAdapter implements LLMAdapter {
     }
 
     return {
-      content: 'Default mock response'
+      content: JSON.stringify({
+        intent: 'respond',
+        confidence: 1.0,
+        proposedAction: {
+          type: 'send_message',
+          payload: { message: 'Default mock response' }
+        }
+      })
     };
   }
 

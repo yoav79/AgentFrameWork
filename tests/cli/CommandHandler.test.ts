@@ -1,9 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CommandHandler } from '../../apps/cli/CommandHandler';
-import { Kernel } from '../../core/kernel/Kernel';
-import { MockLLMAdapter } from '../../core/llm/MockLLMAdapter';
 import { ProjectDirectoryAdapter } from '../../apps/cli/ProjectDirectoryAdapter';
+import { AgentKernel } from '../../core/agent/AgentKernel';
 import { FrameworkError } from '../../core/errors/FrameworkError';
+
+class MockAgentKernel {
+  public runArgs: any[] = [];
+  public async run(input: any) {
+    this.runArgs.push(input);
+    return { success: true, result: { message: 'Test response' } };
+  }
+}
 
 describe('CommandHandler Integration', () => {
   let mockDirectoryAdapter: any;
@@ -17,15 +24,11 @@ describe('CommandHandler Integration', () => {
     };
   });
 
-  it('should call kernel.run and render response for normal message', async () => {
-    const mockLlm = new MockLLMAdapter();
-    mockLlm.setResponse({ content: 'Test response' });
-    const kernel = new Kernel({ llm: mockLlm });
-    
-    // Spy on kernel.run
-    const runSpy = vi.spyOn(kernel, 'run');
+  it('should call agentKernel.run and render response for normal message', async () => {
+    const mockAgentKernel = new MockAgentKernel() as unknown as AgentKernel;
+    const runSpy = vi.spyOn(mockAgentKernel, 'run');
 
-    const handler = new CommandHandler(['hello'], kernel, mockDirectoryAdapter as ProjectDirectoryAdapter);
+    const handler = new CommandHandler(['hello'], mockAgentKernel, mockDirectoryAdapter as ProjectDirectoryAdapter);
     
     // Spy on console to check rendering
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -36,19 +39,18 @@ describe('CommandHandler Integration', () => {
     const contextArg = runSpy.mock.calls[0]![0];
     expect(contextArg.input).toBe('hello');
     
-    expect(consoleSpy).toHaveBeenCalledWith('Test response');
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Test response'));
     
     runSpy.mockRestore();
     consoleSpy.mockRestore();
   });
 
   it('should pass projectId to context if --project is used', async () => {
-    const mockLlm = new MockLLMAdapter();
-    const kernel = new Kernel({ llm: mockLlm });
-    const runSpy = vi.spyOn(kernel, 'run');
+    const mockAgentKernel = new MockAgentKernel() as unknown as AgentKernel;
+    const runSpy = vi.spyOn(mockAgentKernel, 'run');
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    const handler = new CommandHandler(['--project', 'p1', 'hello'], kernel, mockDirectoryAdapter as ProjectDirectoryAdapter);
+    const handler = new CommandHandler(['--project', 'p1', 'hello'], mockAgentKernel, mockDirectoryAdapter as ProjectDirectoryAdapter);
     await handler.execute();
 
     expect(runSpy).toHaveBeenCalled();
@@ -61,12 +63,11 @@ describe('CommandHandler Integration', () => {
   });
 
   it('should ignore LLM flags and pass correct input message', async () => {
-    const mockLlm = new MockLLMAdapter();
-    const kernel = new Kernel({ llm: mockLlm });
-    const runSpy = vi.spyOn(kernel, 'run');
+    const mockAgentKernel = new MockAgentKernel() as unknown as AgentKernel;
+    const runSpy = vi.spyOn(mockAgentKernel, 'run');
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    const handler = new CommandHandler(['--llm', 'openai', '--model', 'gpt-4o', '--api-key', '123', 'hello', 'world'], kernel, mockDirectoryAdapter as ProjectDirectoryAdapter);
+    const handler = new CommandHandler(['--llm', 'openai', '--model', 'gpt-4o', '--api-key', '123', 'hello', 'world'], mockAgentKernel, mockDirectoryAdapter as ProjectDirectoryAdapter);
     await handler.execute();
 
     expect(runSpy).toHaveBeenCalled();
@@ -78,12 +79,11 @@ describe('CommandHandler Integration', () => {
   });
 
   it('should pass sessionId to context if --session is used', async () => {
-    const mockLlm = new MockLLMAdapter();
-    const kernel = new Kernel({ llm: mockLlm });
-    const runSpy = vi.spyOn(kernel, 'run');
+    const mockAgentKernel = new MockAgentKernel() as unknown as AgentKernel;
+    const runSpy = vi.spyOn(mockAgentKernel, 'run');
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    const handler = new CommandHandler(['--session', 's1', 'hello'], kernel, mockDirectoryAdapter as ProjectDirectoryAdapter);
+    const handler = new CommandHandler(['--session', 's1', 'hello'], mockAgentKernel, mockDirectoryAdapter as ProjectDirectoryAdapter);
     await handler.execute();
 
     expect(runSpy).toHaveBeenCalled();
@@ -95,30 +95,28 @@ describe('CommandHandler Integration', () => {
     consoleSpy.mockRestore();
   });
 
-  it('should catch context creation errors and render them safely', async () => {
-    const mockLlm = new MockLLMAdapter();
-    const errorKernel = new Kernel({ llm: mockLlm });
-    vi.spyOn(errorKernel, 'run').mockRejectedValue(new FrameworkError('INTERNAL_ERROR', 'Kernel crashed'));
+  it('should catch agent creation errors and render them safely', async () => {
+    const mockAgentKernel = new MockAgentKernel() as unknown as AgentKernel;
+    vi.spyOn(mockAgentKernel, 'run').mockRejectedValue(new FrameworkError('INTERNAL_ERROR', 'Agent crashed'));
     
-    const handler = new CommandHandler(['hello'], errorKernel, mockDirectoryAdapter as ProjectDirectoryAdapter);
+    const handler = new CommandHandler(['hello'], mockAgentKernel, mockDirectoryAdapter as ProjectDirectoryAdapter);
     
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     await handler.execute();
     
     expect(consoleErrorSpy).toHaveBeenCalled();
-    expect(consoleErrorSpy.mock.calls[0]![0]).toContain('Kernel crashed');
+    expect(consoleErrorSpy.mock.calls[0]![0]).toContain('Agent crashed');
     
     consoleErrorSpy.mockRestore();
   });
 
-  it('should preserve /help command without calling kernel', async () => {
-    const mockLlm = new MockLLMAdapter();
-    const kernel = new Kernel({ llm: mockLlm });
-    const runSpy = vi.spyOn(kernel, 'run');
+  it('should preserve /help command without calling agentKernel', async () => {
+    const mockAgentKernel = new MockAgentKernel() as unknown as AgentKernel;
+    const runSpy = vi.spyOn(mockAgentKernel, 'run');
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    const handler = new CommandHandler(['--help'], kernel, mockDirectoryAdapter as ProjectDirectoryAdapter);
+    const handler = new CommandHandler(['--help'], mockAgentKernel, mockDirectoryAdapter as ProjectDirectoryAdapter);
     await handler.execute();
 
     expect(runSpy).not.toHaveBeenCalled();
@@ -128,13 +126,12 @@ describe('CommandHandler Integration', () => {
     consoleSpy.mockRestore();
   });
 
-  it('should not call kernel and render error for empty direct message', async () => {
-    const mockLlm = new MockLLMAdapter();
-    const kernel = new Kernel({ llm: mockLlm });
-    const runSpy = vi.spyOn(kernel, 'run');
+  it('should not call agentKernel and render error for empty direct message', async () => {
+    const mockAgentKernel = new MockAgentKernel() as unknown as AgentKernel;
+    const runSpy = vi.spyOn(mockAgentKernel, 'run');
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    const handler = new CommandHandler(['   '], kernel, mockDirectoryAdapter as ProjectDirectoryAdapter);
+    const handler = new CommandHandler(['   '], mockAgentKernel, mockDirectoryAdapter as ProjectDirectoryAdapter);
     await handler.execute();
 
     expect(runSpy).not.toHaveBeenCalled();
