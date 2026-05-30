@@ -1,4 +1,6 @@
 export class Renderer {
+  private spinnerInterval: NodeJS.Timeout | null = null;
+
   public renderHelp(hasWorkspace: boolean = true): void {
     const flagsHelp = `
 Flags (Startup Options):
@@ -72,6 +74,24 @@ Examples:
 
 
     console.log(JSON.stringify(response, null, 2));
+  }
+
+  public startSpinner(message: string = 'Pensando...'): void {
+    if (this.spinnerInterval) return;
+    const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    let i = 0;
+    this.spinnerInterval = setInterval(() => {
+      process.stdout.write(`\r\x1b[36m${frames[i]} ${message}\x1b[0m`);
+      i = (i + 1) % frames.length;
+    }, 80);
+  }
+
+  public stopSpinner(): void {
+    if (this.spinnerInterval) {
+      clearInterval(this.spinnerInterval);
+      this.spinnerInterval = null;
+      process.stdout.write('\r\x1b[K'); // clear the line
+    }
   }
 
   public renderError(error: Error, debug: boolean): void {
