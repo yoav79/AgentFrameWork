@@ -57,9 +57,10 @@ npx tsx apps/cli/cli.ts --llm mock "Simula una respuesta"
 *Nota: Requiere una API Key válida. El modelo por defecto si no se especifica es `gpt-4o-mini`.*
 
 **Forma recomendada (Variable de Entorno):**
-Exporta tu llave en el entorno antes de correr el CLI. Esto evita que la llave quede en el historial de tu shell.
+Exporta tu llave y modelo en el entorno antes de correr el CLI. Esto evita que la llave quede en el historial de tu shell.
 ```bash
 export OPENAI_API_KEY="sk-tu-llave-secreta"
+export OPENAI_MODEL="gpt-4o" # Opcional, por defecto es gpt-4o-mini
 npx tsx apps/cli/cli.ts --llm openai "Genera un texto real"
 ```
 

@@ -69,6 +69,24 @@ describe('AdapterFactory', () => {
     }));
   });
 
+  it('should initialize OpenAIAdapter with process.env.OPENAI_MODEL when --model flag is not provided', () => {
+    vi.stubEnv('OPENAI_MODEL', 'gpt-3.5-turbo');
+    AdapterFactory.createAdapter(['--llm', 'openai', '--api-key', 'test-key']);
+    expect(OpenAIAdapter).toHaveBeenCalledWith(expect.objectContaining({
+      apiKey: 'test-key',
+      model: 'gpt-3.5-turbo'
+    }));
+  });
+
+  it('should prioritize --model flag over process.env.OPENAI_MODEL', () => {
+    vi.stubEnv('OPENAI_MODEL', 'gpt-3.5-turbo');
+    AdapterFactory.createAdapter(['--llm', 'openai', '--api-key', 'test-key', '--model', 'gpt-4']);
+    expect(OpenAIAdapter).toHaveBeenCalledWith(expect.objectContaining({
+      apiKey: 'test-key',
+      model: 'gpt-4'
+    }));
+  });
+
   it('should initialize OpenAIAdapter with a custom model when --model flag is provided', () => {
     AdapterFactory.createAdapter(['--llm', 'openai', '--api-key', 'test-key', '--model', 'gpt-4']);
     expect(OpenAIAdapter).toHaveBeenCalledWith(expect.objectContaining({

@@ -8,7 +8,7 @@ export class AdapterFactory {
   public static createAdapter(args: string[]): LLMAdapter {
     let provider = 'mock';
     let apiKey: string | undefined = process.env.OPENAI_API_KEY;
-    let model = 'gpt-4o-mini';
+    let model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
     for (let i = 0; i < args.length; i++) {
       const arg = args[i];
