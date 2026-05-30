@@ -67,4 +67,29 @@ describe('PolicyEngine', () => {
     
     expect(() => engine.evaluate(decision)).not.toThrow();
   });
+
+  it('permits read_file with high confidence', () => {
+    const engine = new PolicyEngine();
+    const decision: Decision = {
+      intent: 'respond',
+      confidence: 0.85,
+      proposedAction: { type: 'read_file', payload: { path: 'README.md' } }
+    };
+    const result = engine.evaluate(decision);
+    expect(result.allowed).toBe(true);
+    expect(result.severity).toBe('info');
+  });
+
+  it('rejects read_file with low confidence', () => {
+    const engine = new PolicyEngine();
+    const decision: Decision = {
+      intent: 'respond',
+      confidence: 0.84, // Below 0.85
+      proposedAction: { type: 'read_file', payload: { path: 'README.md' } }
+    };
+    const result = engine.evaluate(decision);
+    expect(result.allowed).toBe(false);
+    expect(result.severity).toBe('warning');
+    expect(result.reason).toMatch(/requires a confidence score of at least 0.85/);
+  });
 });

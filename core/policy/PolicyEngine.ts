@@ -28,6 +28,21 @@ export class PolicyEngine {
         };
       }
 
+      if (decision.proposedAction.type === 'read_file') {
+        if (decision.confidence < 0.85) {
+          return {
+            allowed: false,
+            reason: `Action "read_file" requires a confidence score of at least 0.85 (current: ${decision.confidence}).`,
+            severity: 'warning'
+          };
+        }
+        return {
+          allowed: true,
+          reason: 'Action "read_file" is allowed with high confidence.',
+          severity: 'info'
+        };
+      }
+
       return {
         allowed: false,
         reason: `Action type "${decision.proposedAction.type}" is unknown or not permitted.`,

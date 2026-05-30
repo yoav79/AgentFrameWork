@@ -22,8 +22,15 @@ export class DecisionParser {
         throw new FrameworkError('VALIDATION_ERROR', 'Decision confidence must be a number between 0 and 1');
       }
 
-      if (!parsed.proposedAction || !parsed.proposedAction.type || (parsed.proposedAction.type !== 'send_message' && parsed.proposedAction.type !== 'none')) {
-        throw new FrameworkError('VALIDATION_ERROR', 'Decision must have a valid proposedAction.type ("send_message" or "none")');
+      if (!parsed.proposedAction || !parsed.proposedAction.type || (parsed.proposedAction.type !== 'send_message' && parsed.proposedAction.type !== 'none' && parsed.proposedAction.type !== 'read_file')) {
+        throw new FrameworkError('VALIDATION_ERROR', 'Decision must have a valid proposedAction.type ("send_message", "none", or "read_file")');
+      }
+
+      if (parsed.proposedAction.type === 'read_file') {
+        const payload = parsed.proposedAction.payload;
+        if (!payload || typeof payload.path !== 'string' || payload.path.trim() === '') {
+          throw new FrameworkError('VALIDATION_ERROR', 'Action "read_file" requires a valid "path" string in the payload');
+        }
       }
 
       return parsed as Decision;

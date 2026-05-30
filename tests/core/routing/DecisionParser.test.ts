@@ -70,4 +70,65 @@ describe('DecisionParser', () => {
     expect(() => parser.parse(raw)).toThrowError(FrameworkError);
     expect(() => parser.parse(raw)).toThrowError(/Decision must have a valid proposedAction.type/);
   });
+
+  it('should parse valid read_file decision', () => {
+    const parser = new DecisionParser();
+    const raw = JSON.stringify({
+      intent: 'respond',
+      confidence: 0.9,
+      proposedAction: { type: 'read_file', payload: { path: 'README.md' } }
+    });
+    
+    const decision = parser.parse(raw);
+    expect(decision.proposedAction.type).toBe('read_file');
+    expect(decision.proposedAction.payload?.path).toBe('README.md');
+  });
+
+  it('should reject read_file without payload', () => {
+    const parser = new DecisionParser();
+    const raw = JSON.stringify({
+      intent: 'respond',
+      confidence: 0.9,
+      proposedAction: { type: 'read_file' }
+    });
+    
+    expect(() => parser.parse(raw)).toThrowError(FrameworkError);
+    expect(() => parser.parse(raw)).toThrowError(/requires a valid "path" string/);
+  });
+
+  it('should reject read_file without path', () => {
+    const parser = new DecisionParser();
+    const raw = JSON.stringify({
+      intent: 'respond',
+      confidence: 0.9,
+      proposedAction: { type: 'read_file', payload: { foo: 'bar' } }
+    });
+    
+    expect(() => parser.parse(raw)).toThrowError(FrameworkError);
+    expect(() => parser.parse(raw)).toThrowError(/requires a valid "path" string/);
+  });
+
+  it('should reject read_file with non-string path', () => {
+    const parser = new DecisionParser();
+    const raw = JSON.stringify({
+      intent: 'respond',
+      confidence: 0.9,
+      proposedAction: { type: 'read_file', payload: { path: 123 } }
+    });
+    
+    expect(() => parser.parse(raw)).toThrowError(FrameworkError);
+    expect(() => parser.parse(raw)).toThrowError(/requires a valid "path" string/);
+  });
+
+  it('should reject read_file with empty path', () => {
+    const parser = new DecisionParser();
+    const raw = JSON.stringify({
+      intent: 'respond',
+      confidence: 0.9,
+      proposedAction: { type: 'read_file', payload: { path: '   ' } }
+    });
+    
+    expect(() => parser.parse(raw)).toThrowError(FrameworkError);
+    expect(() => parser.parse(raw)).toThrowError(/requires a valid "path" string/);
+  });
 });
