@@ -18,8 +18,30 @@ describe('PromptBuilder', () => {
     expect(prompt).toContain('p-1');
     expect(prompt).toContain('s-1');
     expect(prompt).toContain('valid JSON object');
-    expect(prompt).toContain('interface Decision');
     expect(prompt).not.toContain('Recent Memory:');
+    
+    // Assert tool catalog and rules
+    expect(prompt).toContain('send_message');
+    expect(prompt).toContain('none');
+    expect(prompt).toContain('read_file');
+    
+    // Assert JSON Schema expected
+    expect(prompt).toContain('"proposedAction"');
+    expect(prompt).toContain('"confidence"');
+    expect(prompt).toContain('"path":');
+    
+    // Assert read_file specific rules
+    expect(prompt).toContain('relative paths');
+    expect(prompt).toContain('NO path traversal (..)');
+    expect(prompt).toContain('.env');
+    expect(prompt).toContain('.git');
+    expect(prompt).toContain('node_modules');
+    
+    // Assert negative rules (must not mention hallucinated tools)
+    expect(prompt).not.toContain('write_file');
+    expect(prompt).not.toContain('search_files');
+    expect(prompt).not.toContain('list_files');
+    expect(prompt).not.toContain('run_command');
   });
 
   it('should include Recent Memory section if history exists', () => {

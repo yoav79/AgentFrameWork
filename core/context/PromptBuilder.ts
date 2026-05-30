@@ -16,20 +16,35 @@ Last User Message:
 "${context.lastUserMessage || ''}"
 
 
-You MUST respond strictly with a valid JSON object matching the following TypeScript interface. Do not include markdown formatting or additional text.
-If the user asks you to read a file, you MUST use the 'read_file' action and set intent to 'respond'. If the user asks a question or you want to reply, use 'send_message'.
+You MUST respond strictly with a valid JSON object. Do not include markdown formatting or additional text.
+Do NOT invent action types. If no action applies, use 'none' or 'send_message'.
 
-\`\`\`typescript
-interface Decision {
-  intent: 'respond' | 'unknown';
-  confidence: number;
-  proposedAction: {
-    type: 'send_message' | 'none' | 'read_file';
-    payload?: Record<string, unknown>; // For read_file, include { "path": "filename.ext" }. For send_message, include { "message": "..." }
-  };
-  reasoning?: string;
+Available Actions:
+1. send_message
+   - Use when you can respond to the user.
+   - Payload expected: { "message": "..." }
+2. none
+   - Use when there is no useful or safe action.
+   - Payload expected: {}
+3. read_file
+   - Use ONLY when you need to read a specific file from the workspace.
+   - Payload expected: { "path": "relative/path.ts" }
+   - MUST use relative paths. NO absolute paths.
+   - NO path traversal (..).
+   - DO NOT read secrets, .env, .git, or node_modules.
+   - DO NOT read directories.
+   - If you do not know the exact path, DO NOT invent action types. Ask the user instead using send_message.
+
+JSON Schema Expected:
+{
+  "intent": "respond | unknown",
+  "confidence": 0.0,
+  "proposedAction": {
+    "type": "send_message | none | read_file",
+    "payload": {}
+  },
+  "reasoning": "brief explanation"
 }
-\`\`\`
 `;
 
     if (context.history) {
