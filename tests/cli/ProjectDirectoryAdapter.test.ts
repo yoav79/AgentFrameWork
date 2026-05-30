@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ProjectDirectoryAdapter } from '../../apps/cli/ProjectDirectoryAdapter';
 import * as fs from 'fs';
+import { FrameworkError } from '../../core/errors/FrameworkError';
 
 vi.mock('fs');
 
@@ -35,5 +36,18 @@ describe('ProjectDirectoryAdapter', () => {
   it('should create project', () => {
     adapter.createProject('proj1');
     expect(fs.mkdirSync).toHaveBeenCalledWith(expect.stringContaining('proj1'), { recursive: true });
+  });
+
+  it('should throw VALIDATION_ERROR on empty project name', () => {
+    expect(() => adapter.projectExists('')).toThrow(FrameworkError);
+    expect(() => adapter.createProject('  ')).toThrow(FrameworkError);
+  });
+
+  it('should throw VALIDATION_ERROR on invalid characters (path traversal)', () => {
+    expect(() => adapter.createProject('../evil')).toThrow(FrameworkError);
+    expect(() => adapter.createProject('..')).toThrow(FrameworkError);
+    expect(() => adapter.createProject('.')).toThrow(FrameworkError);
+    expect(() => adapter.createProject('/tmp/evil')).toThrow(FrameworkError);
+    expect(() => adapter.createProject('evil\\path')).toThrow(FrameworkError);
   });
 });
