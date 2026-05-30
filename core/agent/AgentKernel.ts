@@ -11,6 +11,9 @@ import { SkillResult } from '../skills/SkillResult';
 import { State } from '../state/State';
 import { PolicyEngine } from '../policy/PolicyEngine';
 import { MemoryReader } from '../memory/MemoryReader';
+import { ExecutionTrace } from '../flow/ExecutionTrace';
+import { AgentStep } from '../flow/AgentStep';
+import { StepResult } from '../flow/StepResult';
 
 export interface AgentRunInput {
   input: string;
@@ -26,6 +29,11 @@ export interface AgentRunResult {
   eventId?: string;
   error?: string;
   policyReason?: string;
+  trace?: {
+    steps: AgentStep[];
+    results: StepResult[];
+    success: boolean;
+  };
 }
 
 export class AgentKernel {
@@ -42,6 +50,7 @@ export class AgentKernel {
   ) {}
 
   public async run(input: AgentRunInput): Promise<AgentRunResult> {
+    const trace = new ExecutionTrace();
     try {
       const eventId = `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
       const payload: UserMessageReceivedPayload = {
@@ -79,9 +88,27 @@ export class AgentKernel {
       });
 
       const decision = this.decisionParser.parse(llmResult.content);
+
+      const agentStep: AgentStep = {
+        id: `step-${Date.now()}`,
+        actionType: decision.proposedAction?.type || 'unknown',
+        decision,
+        startedAt: new Date()
+      };
+      trace.addStep(agentStep);
       
       const policyDecision = this.policyEngine.evaluate(decision);
       if (!policyDecision.allowed) {
+        agentStep.endedAt = new Date();
+        agentStep.success = false;
+        agentStep.error = policyDecision.reason;
+        
+        trace.addResult({
+          step: agentStep,
+          success: false,
+          error: policyDecision.reason
+        });
+
         this.eventLog.append({
           id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
           type: EventType.PolicyRejected,
@@ -100,12 +127,33 @@ export class AgentKernel {
           decision,
           state,
           eventId,
-          policyReason: policyDecision.reason || 'Action rejected by policy engine.'
+          policyReason: policyDecision.reason || 'Action rejected by policy engine.',
+          trace: { steps: trace.getSteps(), results: trace.getResults(), success: trace.isSuccessful() }
         };
       }
 
       const actionResult = await this.actionExecutor.execute(decision);
       
+      agentStep.endedAt = new Date();
+      agentStep.success = actionResult.success;
+      if (!actionResult.success) {
+        agentStep.error = actionResult.error;
+      }
+      
+      let sanitizedData = actionResult.data;
+      if (sanitizedData && typeof sanitizedData === 'object' && 'content' in sanitizedData) {
+        const { content, ...rest } = sanitizedData as any;
+        sanitizedData = rest;
+      }
+
+      trace.addResult({
+        step: agentStep,
+        success: actionResult.success,
+        message: actionResult.message,
+        error: actionResult.error,
+        data: sanitizedData
+      });
+
       if (actionResult.success) {
         this.eventLog.append({
           id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -137,13 +185,16 @@ export class AgentKernel {
         decision,
         state,
         eventId,
-        ...(actionResult.error ? { error: actionResult.error } : {})
+        ...(actionResult.error ? { error: actionResult.error } : {}),
+        trace: { steps: trace.getSteps(), results: trace.getResults(), success: trace.isSuccessful() }
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
+        trace: { steps: trace.getSteps(), results: trace.getResults(), success: false }
       };
     }
   }
 }
+

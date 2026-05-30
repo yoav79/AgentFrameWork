@@ -64,6 +64,14 @@ describe('AgentKernel', () => {
     expect(result.decision?.intent).toBe('respond');
     expect(result.eventId).toBeDefined();
     
+    // Trace assertions
+    expect(result.trace).toBeDefined();
+    expect(result.trace?.success).toBe(true);
+    expect(result.trace?.steps.length).toBe(1);
+    expect(result.trace?.results.length).toBe(1);
+    expect(result.trace?.steps[0]!.actionType).toBe('send_message');
+    expect(result.trace?.results[0]!.success).toBe(true);
+
     const events = eventLog.getAll();
     expect(events.length).toBe(2);
     expect(events[0]!.type).toBe(EventType.UserMessageReceived);
@@ -97,6 +105,12 @@ describe('AgentKernel', () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain('No compatible skill');
     
+    expect(result.trace).toBeDefined();
+    expect(result.trace?.success).toBe(false);
+    expect(result.trace?.steps.length).toBe(1);
+    expect(result.trace?.results.length).toBe(1);
+    expect(result.trace?.results[0]!.error).toContain('No compatible skill');
+
     const events = eventLog.getAll();
     expect(events.length).toBe(2);
     expect(events[1]!.type).toBe(EventType.ActionFailed);
@@ -137,6 +151,12 @@ describe('AgentKernel', () => {
     expect(result.policyReason).toContain('below the required threshold');
     expect(result.error).toBeUndefined(); // Should use policyReason, not error
     
+    expect(result.trace).toBeDefined();
+    expect(result.trace?.success).toBe(false);
+    expect(result.trace?.steps.length).toBe(1);
+    expect(result.trace?.results.length).toBe(1);
+    expect(result.trace?.results[0]!.error).toContain('below the required threshold');
+
     const events = kernel['eventLog'].getAll();
     expect(events.length).toBe(2);
     expect(events[1]!.type).toBe(EventType.PolicyRejected);
@@ -253,5 +273,36 @@ describe('AgentKernel', () => {
     // Verify prompt contains history and the previous message
     expect(systemPrompt).toContain('Recent Memory');
     expect(systemPrompt).toContain('me llamo Yoab');
+  });
+
+  it('should sanitize data.content from trace in case of heavy payloads', async () => {
+    const validJson = JSON.stringify({
+      intent: 'respond',
+      confidence: 1,
+      proposedAction: { type: 'read_file', payload: { path: 'test.txt' } }
+    });
+    const llmAdapter = new MockLLMAdapter(validJson);
+    const actionExecutor = new ActionExecutor(new SkillRegistry());
+    // Mock the executor to return heavy data
+    actionExecutor.execute = async () => ({
+      success: true,
+      message: 'File read successfully',
+      data: { path: 'test.txt', content: 'GIANT FILE CONTENT HERE' }
+    });
+
+    const kernel = new AgentKernel(
+      new InMemoryEventLog(), new StateResolver(), new ContextBuilder(), new PromptBuilder(),
+      llmAdapter, new DecisionParser(), new PolicyEngine(), actionExecutor
+    );
+
+    const result = await kernel.run({ input: 'read the file' });
+    expect(result.success).toBe(true);
+    expect(result.trace).toBeDefined();
+    expect(result.trace?.results.length).toBe(1);
+    
+    const traceData = result.trace?.results[0]!.data as any;
+    expect(traceData).toBeDefined();
+    expect(traceData.path).toBe('test.txt');
+    expect(traceData.content).toBeUndefined(); // Sanitize check!
   });
 });
