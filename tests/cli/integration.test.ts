@@ -36,4 +36,26 @@ describe('CLI Smoke / Integration Tests', () => {
       expect(error.stderr?.toString() || error.stdout?.toString()).toContain('Unknown LLM provider: invalid_provider');
     }
   });
+
+  it('should fail immediately when --project is invalid (path traversal)', () => {
+    try {
+      execSync(`npx tsx ${cliPath} --project ../evil "hola"`);
+      expect(true).toBe(false); // should not reach here
+    } catch (error: any) {
+      expect(error.status).toBe(1);
+      expect(error.stderr?.toString() || error.stdout?.toString()).toContain('Project name can only contain');
+    }
+  });
+
+  it('should reject /use ../evil in REPL', () => {
+    // We can test this by passing input to the interactive mode via stdin
+    const output = execSync(`echo "/use ../evil" | npx tsx ${cliPath}`).toString();
+    expect(output).toContain('Project name can only contain');
+    expect(output).not.toContain('Entrando al workspace');
+  });
+
+  it('should accept /use demo in REPL', () => {
+    const output = execSync(`echo "/use demo" | npx tsx ${cliPath}`).toString();
+    expect(output).toContain('Entrando al workspace: demo');
+  });
 });

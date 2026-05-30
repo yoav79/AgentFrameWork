@@ -24,14 +24,11 @@ describe('EventLogFactory', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('should return FileEventLog with sanitized project path if persist is true and projectId is given', () => {
+  it('should throw FrameworkError VALIDATION_ERROR if projectId has invalid characters', () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'eventlogfactory-test-'));
-    // passing a nasty projectId to test sanitization
-    const log = EventLogFactory.create({ persist: true, baseDir: tempDir, projectId: '../../etc/passwd' });
-    expect(log).toBeInstanceOf(FileEventLog);
-    
-    // Should be sanitized to ______etc_passwd
-    expect(fs.existsSync(path.join(tempDir, 'projects', '______etc_passwd', 'events.json'))).toBe(true);
+    expect(() => {
+      EventLogFactory.create({ persist: true, baseDir: tempDir, projectId: '../../etc/passwd' });
+    }).toThrow('Project name can only contain alphanumeric characters');
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 });

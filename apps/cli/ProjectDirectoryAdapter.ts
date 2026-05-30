@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { FrameworkError } from '../../core/errors/FrameworkError';
+import { WorkspaceNameValidator } from '../../core/workspace/WorkspaceNameValidator';
 
 export class ProjectDirectoryAdapter {
   private getProjectsPath(): string {
@@ -8,12 +9,7 @@ export class ProjectDirectoryAdapter {
   }
 
   private validateProjectName(name: string): void {
-    if (!name || name.trim() === '') {
-      throw new FrameworkError('VALIDATION_ERROR', 'Project name cannot be empty');
-    }
-    if (/[^a-zA-Z0-9_-]/.test(name)) {
-      throw new FrameworkError('VALIDATION_ERROR', 'Project name can only contain alphanumeric characters, hyphens, and underscores');
-    }
+    WorkspaceNameValidator.validate(name);
   }
 
   public listProjects(): string[] {

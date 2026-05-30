@@ -3,6 +3,7 @@ import { ProjectDirectoryAdapter } from './ProjectDirectoryAdapter';
 import { AgentKernel } from '../../core/agent/AgentKernel';
 import { join } from 'path';
 import { readFileSync } from 'fs';
+import { WorkspaceNameValidator } from '../../core/workspace/WorkspaceNameValidator';
 
 interface ParsedArgs {
   help: boolean;
@@ -253,10 +254,15 @@ export class CommandHandler {
         if (!currentWorkspace && inputLine.startsWith('/use')) {
           const target = inputLine.slice(4).trim();
           if (target) {
-            currentWorkspace = target;
-            parsedArgs.projectId = target; // update context
-            updatePrompt();
-            console.log(`\x1b[32mEntrando al workspace: ${currentWorkspace}\x1b[0m`);
+            try {
+              WorkspaceNameValidator.validate(target);
+              currentWorkspace = target;
+              parsedArgs.projectId = target; // update context
+              updatePrompt();
+              console.log(`\x1b[32mEntrando al workspace: ${currentWorkspace}\x1b[0m`);
+            } catch (error: any) {
+              console.log(`\x1b[31mError: ${error.message}\x1b[0m`);
+            }
           } else {
             console.log(`\x1b[31mUso: /use <workspace>\x1b[0m`);
           }

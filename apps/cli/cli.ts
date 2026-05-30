@@ -3,6 +3,7 @@ import { CommandHandler } from './CommandHandler';
 import { Renderer } from './Renderer';
 import { AdapterFactory } from './AdapterFactory';
 import { AgentFactory } from '../../core/agent/AgentFactory';
+import { WorkspaceNameValidator } from '../../core/workspace/WorkspaceNameValidator';
 
 async function bootstrap() {
   const args = process.argv.slice(2);
@@ -26,6 +27,16 @@ async function bootstrap() {
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--project') {
       projectId = args[i + 1];
+    }
+  }
+
+  if (projectId) {
+    try {
+      WorkspaceNameValidator.validate(projectId);
+    } catch (error) {
+      const renderer = new Renderer();
+      renderer.renderError(error as Error, args.includes('--debug'));
+      process.exit(1);
     }
   }
 
