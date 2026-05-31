@@ -33,10 +33,6 @@ Context:
 - Last Event ID: ${context.lastEventId || 'None'}
 - Updated At: ${context.updatedAt ? context.updatedAt.toISOString() : 'None'}
 
-Last User Message:
-"${context.lastUserMessage || ''}"
-
-
 You MUST respond strictly with a valid JSON object. Do not include markdown formatting or additional text.
 You HAVE the capability to execute the actions listed below. Do NOT claim that you lack the ability to read files or perform actions.
 Do NOT invent action types. If no action applies, use 'none' or 'send_message'.
@@ -77,9 +73,7 @@ NOTE: confidence must reflect how certain you are (0.0 = completely uncertain, 1
         memorySection += `- [System] Policy Rejected: Action "${rej.actionType || 'unknown'}" blocked (${rej.reason})\n`;
       }
 
-      // Insert memory section before the Last User Message
-      const parts = prompt.split('Last User Message:');
-      prompt = parts[0] + memorySection + '\nLast User Message:' + parts[1];
+      prompt += '\n' + memorySection;
     }
 
     return prompt;

@@ -14,7 +14,7 @@ describe('PromptBuilder', () => {
     
     const prompt = builder.build(context);
     
-    expect(prompt).toContain('hello');
+    expect(prompt).not.toContain('hello');
     expect(prompt).toContain('p-1');
     expect(prompt).toContain('s-1');
     expect(prompt).toContain('valid JSON object');
@@ -69,8 +69,7 @@ describe('PromptBuilder', () => {
     expect(prompt).toContain('- [System] Action Executed (send_message): Success');
     expect(prompt).toContain('- [System] Action Failed (do_magic): fail');
     expect(prompt).toContain('- [System] Policy Rejected: Action "format" blocked (blocked)');
-    expect(prompt).toContain('Last User Message:');
-    expect(prompt.indexOf('Recent Memory:')).toBeLessThan(prompt.indexOf('Last User Message:'));
+    expect(prompt).not.toContain('Last User Message:');
   });
 
   it('should render ephemeralStepContext if provided', () => {

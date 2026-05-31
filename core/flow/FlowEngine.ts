@@ -84,7 +84,10 @@ export class FlowEngine {
         const prompt = this.promptBuilder.build(context);
 
         const llmResult = await this.llmAdapter.generate({
-          messages: [{ role: 'system', content: prompt }]
+          messages: [
+            { role: 'system', content: prompt },
+            { role: 'user', content: lastState?.lastUserMessage || input.input }
+          ]
         });
 
         lastDecision = this.decisionParser.parse(llmResult.content);
