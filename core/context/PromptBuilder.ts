@@ -2,6 +2,20 @@ import { BuiltContext } from './ContextBuilder';
 
 export class PromptBuilder {
   public build(context: BuiltContext): string {
+    let ephemeralSection = '';
+    if (context.ephemeralStepContext) {
+      ephemeralSection = `
+Previous Tool Result:
+Action: ${context.ephemeralStepContext.actionType}`;
+      if (context.ephemeralStepContext.message) {
+        ephemeralSection += `\nMessage: ${context.ephemeralStepContext.message}`;
+      }
+      if (context.ephemeralStepContext.data !== undefined) {
+        ephemeralSection += `\nData:\n${JSON.stringify(context.ephemeralStepContext.data, null, 2)}`;
+      }
+      ephemeralSection += '\n\n';
+    }
+
     let prompt = `You are an AI assistant.
 Your task is to respond to the user based on the following context:
 
@@ -35,7 +49,7 @@ Available Actions:
    - DO NOT read directories.
    - If you do not know the exact path, DO NOT invent action types. Ask the user instead using send_message.
 
-JSON Schema Expected:
+${ephemeralSection}JSON Schema Expected:
 {
   "intent": "respond | unknown",
   "confidence": 0.0,

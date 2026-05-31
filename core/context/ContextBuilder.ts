@@ -1,6 +1,12 @@
 import { State } from '../state/State';
 import { HistoryContext } from '../memory/HistoryContext';
 
+export interface EphemeralStepContext {
+  actionType: string;
+  message?: string;
+  data?: unknown;
+}
+
 export interface BuiltContext {
   lastUserMessage?: string;
   projectId?: string;
@@ -9,10 +15,11 @@ export interface BuiltContext {
   lastEventId?: string;
   updatedAt?: Date;
   history?: HistoryContext;
+  ephemeralStepContext?: EphemeralStepContext;
 }
 
 export class ContextBuilder {
-  public build(state: State, history?: HistoryContext): BuiltContext {
+  public build(state: State, history?: HistoryContext, ephemeralStepContext?: EphemeralStepContext): BuiltContext {
     return {
       lastUserMessage: state.lastUserMessage,
       projectId: state.projectId,
@@ -20,7 +27,8 @@ export class ContextBuilder {
       messageCount: state.messageCount,
       lastEventId: state.lastEventId,
       updatedAt: state.updatedAt,
-      history
+      history,
+      ephemeralStepContext
     };
   }
 }

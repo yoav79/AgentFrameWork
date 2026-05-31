@@ -48,5 +48,19 @@ describe('ContextBuilder', () => {
     
     expect(context.history).toBeDefined();
     expect(context.history?.recentUserMessages).toContain('msg1');
+    expect(context.ephemeralStepContext).toBeUndefined();
+  });
+
+  it('should include ephemeralStepContext if provided', () => {
+    const builder = new ContextBuilder();
+    const state: State = { messageCount: 1 };
+    const ephemeral = {
+      actionType: 'read_file',
+      message: 'success',
+      data: { content: 'test' }
+    };
+    const context = builder.build(state, undefined, ephemeral);
+    
+    expect(context.ephemeralStepContext).toEqual(ephemeral);
   });
 });

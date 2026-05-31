@@ -72,4 +72,37 @@ describe('PromptBuilder', () => {
     expect(prompt).toContain('Last User Message:');
     expect(prompt.indexOf('Recent Memory:')).toBeLessThan(prompt.indexOf('Last User Message:'));
   });
+
+  it('should render ephemeralStepContext if provided', () => {
+    const builder = new PromptBuilder();
+    const context: BuiltContext = {
+      messageCount: 1,
+      ephemeralStepContext: {
+        actionType: 'read_file',
+        message: 'File read successfully',
+        data: { content: 'some raw content' }
+      }
+    };
+    
+    const prompt = builder.build(context);
+    
+    expect(prompt).toContain('Previous Tool Result:');
+    expect(prompt).toContain('Action: read_file');
+    expect(prompt).toContain('Message: File read successfully');
+    expect(prompt).toContain('"content": "some raw content"');
+    
+    // Validar que las reglas anti-alucinación sigan presentes
+    expect(prompt).toContain('send_message');
+    expect(prompt).not.toContain('write_file');
+  });
+
+  it('should not render Previous Tool Result if ephemeralStepContext is absent', () => {
+    const builder = new PromptBuilder();
+    const context: BuiltContext = {
+      messageCount: 1
+    };
+    
+    const prompt = builder.build(context);
+    expect(prompt).not.toContain('Previous Tool Result:');
+  });
 });
