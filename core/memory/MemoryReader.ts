@@ -31,6 +31,11 @@ export class MemoryReader {
         }
       } else if (event.type === EventType.ActionExecuted) {
         const payload = event.payload as ActionExecutedPayload;
+        // Only terminal actions (send_message) are meaningful in history.
+        // Tool actions (read_file, etc.) are ephemeral — their result lives in
+        // ephemeralStepContext for the current turn only. Injecting them here
+        // causes the LLM to think the task is already done on subsequent turns.
+        if (payload.actionType !== 'send_message') continue;
         context.recentActions.push({
           actionType: truncate(payload.actionType, 100),
           success: true,

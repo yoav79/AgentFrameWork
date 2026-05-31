@@ -33,11 +33,38 @@ describe('MemoryReader', () => {
 
     expect(history.eventCount).toBe(5);
     expect(history.recentUserMessages).toEqual(['hello']);
+    // Only send_message appears — do_magic is a failed action so it still appears
     expect(history.recentActions).toHaveLength(2);
     expect(history.recentActions[0]).toEqual({ actionType: 'send_message', success: true, message: 'hi there' });
     expect(history.recentActions[1]).toEqual({ actionType: 'do_magic', success: false, error: 'not found' });
     expect(history.recentPolicyRejections).toHaveLength(1);
     expect(history.recentPolicyRejections[0]).toEqual({ reason: 'low confidence', actionType: 'unknown_action', confidence: 0.1 });
+  });
+
+  it('does NOT include read_file (intermediate tool) in memory history', () => {
+    const log = new InMemoryEventLog();
+    log.append({
+      id: '1', type: EventType.UserMessageReceived, source: EventSource.USER, timestamp: new Date(),
+      payload: { message: 'lee el archivo hello.txt' }
+    });
+    // Step 1 of multi-step loop: read_file executed successfully
+    log.append({
+      id: '2', type: EventType.ActionExecuted, source: EventSource.SYSTEM, timestamp: new Date(),
+      payload: { actionType: 'read_file', success: true, message: 'File read successfully' }
+    });
+    // Step 2: send_message executed
+    log.append({
+      id: '3', type: EventType.ActionExecuted, source: EventSource.SYSTEM, timestamp: new Date(),
+      payload: { actionType: 'send_message', success: true, message: 'El archivo dice: hello world' }
+    });
+
+    const reader = new MemoryReader(log);
+    const history = reader.read();
+
+    // read_file must NOT appear — it would cause LLM to think task is done on next turn
+    expect(history.recentActions).toHaveLength(1);
+    expect(history.recentActions[0]!.actionType).toBe('send_message');
+    expect(history.recentActions.find(a => a.actionType === 'read_file')).toBeUndefined();
   });
 
   it('respects the limit option', () => {
