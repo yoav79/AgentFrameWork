@@ -12,9 +12,11 @@ import { PolicyEngine } from '../policy/PolicyEngine';
 import { MemoryReader } from '../memory/MemoryReader';
 import { ToolRegistry } from '../tools/ToolRegistry';
 import { ReadFileTool } from '../tools';
+import { FlowConfig } from '../flow/FlowConfig';
 
 export interface AgentFactoryOptions extends EventLogFactoryOptions {
   workspaceRoot?: string;
+  flowConfig?: FlowConfig;
 }
 
 export class AgentFactory {
@@ -45,7 +47,8 @@ export class AgentFactory {
       decisionParser,
       policyEngine,
       actionExecutor,
-      memoryReader
+      memoryReader,
+      options?.flowConfig
     );
   }
 }

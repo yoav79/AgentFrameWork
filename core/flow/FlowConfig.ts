@@ -9,7 +9,7 @@ export interface FlowConfig {
 }
 
 export const DEFAULT_FLOW_CONFIG: FlowConfig = {
-  maxSteps: 1, // Mantiene el comportamiento single-pass actual
+  maxSteps: 2, // Permite tool -> send_message de dos pasos
   maxToolCalls: 1,
   stopOnPolicyRejection: true,
   stopOnToolError: true,

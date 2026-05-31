@@ -400,4 +400,40 @@ describe('AgentKernel', () => {
     // Trace has 2 steps: read_file + synthesized send_message
     expect(result.trace?.steps.length).toBe(2);
   });
+
+  it('should respect maxSteps: 1 from FlowConfig and not execute synthesized step', async () => {
+    const validJson = JSON.stringify({
+      intent: 'unknown',
+      confidence: 1,
+      proposedAction: { type: 'read_file', payload: { path: 'test.txt' } }
+    });
+    const llmAdapter = new MockLLMAdapter(validJson);
+    const actionExecutor = new ActionExecutor(new SkillRegistry());
+    actionExecutor.execute = async (decision) => {
+      if (decision.proposedAction?.type === 'read_file') {
+        return { success: true, message: 'File read successfully', data: { content: 'file content', path: 'test.txt' } };
+      }
+      return { success: true, message: 'Message' };
+    };
+
+    const flowConfig = {
+      maxSteps: 1,
+      maxToolCalls: 1,
+      stopOnPolicyRejection: true,
+      stopOnToolError: true,
+      allowRetries: false,
+      maxRetries: 0
+    };
+
+    const kernel = new AgentKernel(
+      new InMemoryEventLog(), new StateResolver(), new ContextBuilder(), new PromptBuilder(),
+      llmAdapter, new DecisionParser(), new PolicyEngine(), actionExecutor, undefined, flowConfig
+    );
+
+    const result = await kernel.run({ input: 'read once' });
+    expect(result.success).toBe(true);
+    // Only 1 step is executed because maxSteps is 1
+    expect(result.trace?.steps.length).toBe(1);
+    expect(result.trace?.steps[0]!.actionType).toBe('read_file');
+  });
 });

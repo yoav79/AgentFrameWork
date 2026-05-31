@@ -15,6 +15,7 @@ import { ExecutionTrace } from '../flow/ExecutionTrace';
 import { AgentStep } from '../flow/AgentStep';
 import { StepResult } from '../flow/StepResult';
 import { ResultSanitizer } from '../flow/ResultSanitizer';
+import { FlowConfig, DEFAULT_FLOW_CONFIG } from '../flow/FlowConfig';
 
 export interface AgentRunInput {
   input: string;
@@ -47,7 +48,8 @@ export class AgentKernel {
     private readonly decisionParser: DecisionParser,
     private readonly policyEngine: PolicyEngine,
     private readonly actionExecutor: ActionExecutor,
-    private readonly memoryReader?: MemoryReader
+    private readonly memoryReader?: MemoryReader,
+    private readonly flowConfig: FlowConfig = DEFAULT_FLOW_CONFIG
   ) {}
 
   public async run(input: AgentRunInput): Promise<AgentRunResult> {
@@ -68,7 +70,7 @@ export class AgentKernel {
         payload
       });
 
-      const maxSteps = 2;
+      const maxSteps = this.flowConfig.maxSteps;
       let stepCount = 0;
       let ephemeralStepContext: { actionType: string; message?: string; data?: unknown } | undefined;
       let lastResult: SkillResult | undefined;
@@ -196,6 +198,17 @@ export class AgentKernel {
         }
 
         if (actionType === 'send_message' || actionType === 'none') {
+          return {
+            success: true,
+            result: actionResult,
+            decision: lastDecision,
+            state: lastState,
+            eventId,
+            trace: { steps: trace.getSteps(), results: trace.getResults(), success: trace.isSuccessful() }
+          };
+        }
+
+        if (stepCount >= maxSteps) {
           return {
             success: true,
             result: actionResult,
