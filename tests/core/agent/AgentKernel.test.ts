@@ -307,27 +307,23 @@ describe('AgentKernel', () => {
     expect(traceData.base64Data).toBeUndefined();
   });
 
-  it('should execute multi-step flow read_file -> send_message', async () => {
+  it('should execute multi-step flow: read_file result synthesized as send_message by Kernel', async () => {
     const json1 = JSON.stringify({
       intent: 'unknown',
       confidence: 1,
       proposedAction: { type: 'read_file', payload: { path: 'test.txt' } }
     });
-    const json2 = JSON.stringify({
-      intent: 'respond',
-      confidence: 1,
-      proposedAction: { type: 'send_message', payload: { message: 'I read it' } }
-    });
 
-    const llmAdapter = new MockLLMAdapter('');
-    const generateSpy = vi.spyOn(llmAdapter, 'generate').mockResolvedValueOnce({ content: json1 }).mockResolvedValueOnce({ content: json2 });
+    const llmAdapter = new MockLLMAdapter(json1);
+    const generateSpy = vi.spyOn(llmAdapter, 'generate');
 
     const actionExecutor = new ActionExecutor(new SkillRegistry());
     actionExecutor.execute = async (decision) => {
       if (decision.proposedAction?.type === 'read_file') {
-        return { success: true, message: 'read ok', data: { content: 'hello world' } };
+        return { success: true, message: 'read ok', data: { content: 'hello world', path: 'test.txt', size: 11 } };
       }
-      return { success: true, message: 'I read it' }; // send_message
+      // send_message synthetic step — called by the Kernel, not the LLM
+      return { success: true, message: decision.proposedAction?.payload?.message as string };
     };
 
     const kernel = new AgentKernel(
@@ -337,23 +333,21 @@ describe('AgentKernel', () => {
 
     const result = await kernel.run({ input: 'read test.txt' });
 
-    expect(generateSpy).toHaveBeenCalledTimes(2);
+    // LLM is called ONLY ONCE — Kernel synthesizes step 2 deterministically
+    expect(generateSpy).toHaveBeenCalledTimes(1);
     expect(result.success).toBe(true);
-    expect(result.result?.message).toBe('I read it');
+    expect(result.result?.message).toContain('hello world');
     
-    // Trace length 2
+    // Trace still has 2 steps: read_file + synthesized send_message
     expect(result.trace?.steps.length).toBe(2);
     expect(result.trace?.results.length).toBe(2);
     expect(result.trace?.steps[0]!.actionType).toBe('read_file');
     expect(result.trace?.steps[1]!.actionType).toBe('send_message');
     
-    // Check ephemeral context in second prompt
-    const secondCallMessages = (generateSpy.mock.calls as any)[1][0].messages;
-    const systemPrompt = secondCallMessages.find((m: any) => m.role === 'system')?.content || '';
-    expect(systemPrompt).toContain('Previous Tool Result');
-    expect(systemPrompt).toContain('hello world'); // data.content injected!
+    // result.data carries the raw tool data (content accessible for Renderer)
+    expect((result.result?.data as any)?.content).toBe('hello world');
     
-    // Trace sanitized check
+    // Trace does NOT contain the raw content (sanitized)
     const traceData1 = result.trace?.results[0]!.data as any;
     expect(traceData1?.content).toBeUndefined();
   });
@@ -377,7 +371,7 @@ describe('AgentKernel', () => {
     expect(result.trace?.steps.length).toBe(1);
   });
 
-  it('should respect maxSteps (2) if LLM loops', async () => {
+  it('should synthesize send_message and not loop when read_file succeeds', async () => {
     const validJson = JSON.stringify({
       intent: 'unknown',
       confidence: 1,
@@ -387,7 +381,12 @@ describe('AgentKernel', () => {
     const generateSpy = vi.spyOn(llmAdapter, 'generate');
     
     const actionExecutor = new ActionExecutor(new SkillRegistry());
-    actionExecutor.execute = async () => ({ success: true, message: 'ok' });
+    actionExecutor.execute = async (decision) => {
+      if (decision.proposedAction?.type === 'read_file') {
+        return { success: true, message: 'File read successfully', data: { content: 'file content', path: 'test.txt', size: 12 } };
+      }
+      return { success: true, message: decision.proposedAction?.payload?.message as string };
+    };
 
     const kernel = new AgentKernel(
       new InMemoryEventLog(), new StateResolver(), new ContextBuilder(), new PromptBuilder(),
@@ -395,8 +394,10 @@ describe('AgentKernel', () => {
     );
 
     const result = await kernel.run({ input: 'read forever' });
-    expect(generateSpy).toHaveBeenCalledTimes(2);
+    // LLM called only ONCE — Kernel short-circuits with synthetic send_message
+    expect(generateSpy).toHaveBeenCalledTimes(1);
     expect(result.success).toBe(true);
+    // Trace has 2 steps: read_file + synthesized send_message
     expect(result.trace?.steps.length).toBe(2);
   });
 });

@@ -206,10 +206,62 @@ export class AgentKernel {
           };
         }
 
-        ephemeralStepContext = {
-          actionType,
-          message: actionResult.message,
-          data: actionResult.data
+        // Tool action succeeded and is not terminal.
+        // Instead of looping back to the LLM (which consistently fails to produce
+        // a valid send_message in step 2), the Kernel synthesizes the response
+        // directly. The LLM already made the important decision in step 1.
+        const toolData = actionResult.data as Record<string, unknown> | undefined;
+        const fileContent = toolData?.content as string | undefined;
+        const syntheticMessage = fileContent
+          ? `${actionResult.message}\n\n${fileContent}`
+          : actionResult.message || 'Tool executed successfully.';
+
+        const syntheticDecision: Decision = {
+          intent: 'respond',
+          confidence: 1.0,
+          proposedAction: {
+            type: 'send_message',
+            payload: { message: syntheticMessage }
+          }
+        };
+
+        const syntheticResult = await this.actionExecutor.execute(syntheticDecision);
+
+        const syntheticStep: AgentStep = {
+          id: `step-${Date.now()}`,
+          actionType: 'send_message',
+          decision: syntheticDecision,
+          startedAt: new Date(),
+          endedAt: new Date(),
+          success: syntheticResult.success
+        };
+        trace.addStep(syntheticStep);
+        trace.addResult({
+          step: syntheticStep,
+          success: syntheticResult.success,
+          message: syntheticResult.message,
+          data: ResultSanitizer.sanitizeData(syntheticResult.data)
+        });
+
+        this.eventLog.append({
+          id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+          type: EventType.ActionExecuted,
+          source: EventSource.SYSTEM,
+          timestamp: new Date(),
+          payload: {
+            actionType: 'send_message',
+            success: true,
+            message: syntheticResult.message
+          }
+        });
+
+        return {
+          success: true,
+          result: { ...syntheticResult, data: actionResult.data },
+          decision: syntheticDecision,
+          state: lastState,
+          eventId,
+          trace: { steps: trace.getSteps(), results: trace.getResults(), success: trace.isSuccessful() }
         };
       }
 
