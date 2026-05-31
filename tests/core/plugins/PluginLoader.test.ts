@@ -67,7 +67,7 @@ describe('PluginLoader', () => {
       }
     };
 
-    await PluginLoader.loadPlugins(tempPluginsDir, config, baseContext, registry);
+    PluginLoader.loadPlugins(tempPluginsDir, config, baseContext, registry);
 
     const tool = registry.getToolForAction('test_action');
     expect(tool).toBeDefined();
@@ -121,7 +121,7 @@ describe('PluginLoader', () => {
       }
     };
 
-    await PluginLoader.loadPlugins(tempPluginsDir, config, baseContext, registry);
+    PluginLoader.loadPlugins(tempPluginsDir, config, baseContext, registry);
 
     const tool = registry.getToolForAction('disabled_action');
     expect(tool).toBeUndefined();

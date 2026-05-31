@@ -61,6 +61,7 @@ async function bootstrap() {
     persist: isPersistMode,
     projectId: id,
     workspaceRoot: root ?? (id ? directoryAdapter.getProjectPath(id) : process.cwd()),
+    debug: args.includes('--debug'),
     flowConfig: {
       maxSteps,
       maxToolCalls,

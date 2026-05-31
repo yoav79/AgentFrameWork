@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { ReadFileTool } from '../../../core/tools/ReadFileTool';
+import { ReadFileTool } from '../../../plugins/tools/ReadFileTool';
 
 describe('ReadFileTool', () => {
   let tmpDir: string;

@@ -7,9 +7,10 @@
         "test": "tests"
     },
     "scripts": {
-        "test": "vitest run",
-        "dev": "tsx --env-file=.env apps/cli/cli.ts",
-        "typecheck": "tsc --noEmit"
+        "test": "npm run build:plugins && vitest run",
+        "dev": "npm run build:plugins && tsx --env-file=.env apps/cli/cli.ts",
+        "typecheck": "tsc --noEmit",
+        "build:plugins": "esbuild plugins/tools/ReadFileTool.ts --outdir=dist/plugins/tools --platform=node --format=cjs"
     },
     "repository": {
         "type": "git",

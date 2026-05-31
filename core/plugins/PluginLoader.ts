@@ -11,12 +11,12 @@ export interface WorkspacePluginsConfig {
 }
 
 export class PluginLoader {
-  public static async loadPlugins(
+  public static loadPlugins(
     pluginsDir: string,
     config: WorkspacePluginsConfig,
     baseContext: Omit<PluginContext, 'config'>,
     registry: ToolRegistry
-  ): Promise<void> {
+  ): void {
     if (!fs.existsSync(pluginsDir)) {
       baseContext.logger.warn(`Plugins directory does not exist: ${pluginsDir}`);
       return;
@@ -31,12 +31,10 @@ export class PluginLoader {
         continue;
       }
 
-      // Use file:// URL scheme for absolute path ESM dynamic import compatibility
       const resolvedPath = path.resolve(pluginsDir, file);
-      const fileUrl = resolvedPath.startsWith('/') ? `file://${resolvedPath}` : resolvedPath;
 
       try {
-        const pluginModule: ToolPluginModule = await import(fileUrl);
+        const pluginModule: ToolPluginModule = require(resolvedPath);
 
         // Validation of shape
         if (!pluginModule || typeof pluginModule !== 'object') {

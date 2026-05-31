@@ -1,7 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Tool } from './Tool';
-import { ToolResult } from './ToolResult';
+import { Tool } from '../../core/tools/Tool';
+import { ToolResult } from '../../core/tools/ToolResult';
+import { ToolPluginModule, PluginContext } from '../../core/plugins/contracts';
 
 export class ReadFileTool implements Tool {
   public readonly name = 'read_file';
@@ -45,7 +46,7 @@ export class ReadFileTool implements Tool {
       return { success: false, error: 'Path traversal (..) is not allowed.' };
     }
 
-    // Check against blacklisted paths using both forward and backslashes for cross-platform safety
+    // Check against blacklisted paths
     const normalizedRequested = requestedPath.replace(/\\/g, '/');
     const pathSegments = normalizedRequested.split('/').filter(Boolean);
     for (const segment of pathSegments) {
@@ -109,3 +110,15 @@ export class ReadFileTool implements Tool {
     }
   }
 }
+
+export const manifest: ToolPluginModule['manifest'] = {
+  name: 'read_file',
+  version: '1.0.0',
+  kind: 'tool',
+  actionType: 'read_file'
+};
+
+export const create = (ctx: PluginContext): Tool => {
+  const maxBytes = ctx.config.maxBytes ? Number(ctx.config.maxBytes) : undefined;
+  return new ReadFileTool(ctx.workspaceRoot, { maxBytes });
+};
