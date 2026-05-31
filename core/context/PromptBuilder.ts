@@ -13,7 +13,7 @@ Action: ${context.ephemeralStepContext.actionType}`;
       if (context.ephemeralStepContext.data !== undefined) {
         ephemeralSection += `\nData:\n${JSON.stringify(context.ephemeralStepContext.data, null, 2)}`;
       }
-      ephemeralSection += '\n\n';
+      ephemeralSection += '\n\nCRITICAL RULE: You have just received a tool result. You MUST now use the "send_message" action to communicate this result to the user. DO NOT use "none".\n\n';
     }
 
     let prompt = `You are an AI assistant.
@@ -31,6 +31,7 @@ Last User Message:
 
 
 You MUST respond strictly with a valid JSON object. Do not include markdown formatting or additional text.
+You HAVE the capability to execute the actions listed below. Do NOT claim that you lack the ability to read files or perform actions.
 Do NOT invent action types. If no action applies, use 'none' or 'send_message'.
 
 Available Actions:
@@ -47,7 +48,7 @@ Available Actions:
    - NO path traversal (..).
    - DO NOT read secrets, .env, .git, or node_modules.
    - DO NOT read directories.
-   - If you do not know the exact path, DO NOT invent action types. Ask the user instead using send_message.
+   - If the user provides just a filename (e.g. 'text.txt'), assume it is in the root directory (i.e. use "text.txt").
 
 ${ephemeralSection}JSON Schema Expected:
 {
