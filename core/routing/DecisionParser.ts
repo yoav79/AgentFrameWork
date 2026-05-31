@@ -22,12 +22,28 @@ export class DecisionParser {
 
       const parsed = JSON.parse(cleanedRaw);
 
+      if (parsed.intent && typeof parsed.intent === 'string') {
+        const lowerIntent = parsed.intent.toLowerCase().trim();
+        if (['none', 'greet', 'greeting', 'social', 'conversation', 'respond | unknown'].includes(lowerIntent)) {
+          parsed.intent = 'respond';
+        }
+      }
+
       if (!parsed.intent || (parsed.intent !== 'respond' && parsed.intent !== 'unknown')) {
         throw new FrameworkError('VALIDATION_ERROR', 'Decision must have a valid intent ("respond" or "unknown")');
       }
 
       if (typeof parsed.confidence !== 'number' || parsed.confidence < 0 || parsed.confidence > 1) {
         throw new FrameworkError('VALIDATION_ERROR', 'Decision confidence must be a number between 0 and 1');
+      }
+
+      if (!parsed.proposedAction) {
+        parsed.proposedAction = { type: 'none', payload: {} };
+      } else if (!parsed.proposedAction.type) {
+        parsed.proposedAction.type = 'none';
+        if (!parsed.proposedAction.payload) {
+          parsed.proposedAction.payload = {};
+        }
       }
 
       if (!parsed.proposedAction || !parsed.proposedAction.type || !this.actionCatalog.isValidAction(parsed.proposedAction.type)) {

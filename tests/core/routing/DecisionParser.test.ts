@@ -59,12 +59,12 @@ describe('DecisionParser', () => {
     expect(() => parser.parse(raw)).toThrowError(/Decision confidence must be a number between 0 and 1/);
   });
 
-  it('should reject decision without proposedAction.type', () => {
+  it('should reject decision with invalid proposedAction.type', () => {
     const parser = new DecisionParser();
     const raw = JSON.stringify({
       intent: 'respond',
       confidence: 0.9,
-      proposedAction: { payload: {} }
+      proposedAction: { type: 'invalid_action', payload: {} }
     });
     
     expect(() => parser.parse(raw)).toThrowError(FrameworkError);
