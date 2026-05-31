@@ -1,5 +1,6 @@
 import { State } from '../state/State';
 import { HistoryContext } from '../memory/HistoryContext';
+import { WorkingMemoryEntry } from '../memory/WorkingMemoryEntry';
 
 export interface EphemeralStepContext {
   actionType: string;
@@ -16,6 +17,7 @@ export interface BuiltContext {
   updatedAt?: Date;
   history?: HistoryContext;
   ephemeralStepContext?: EphemeralStepContext;
+  workingMemory?: WorkingMemoryEntry[];
 }
 
 export class ContextBuilder {
@@ -28,7 +30,8 @@ export class ContextBuilder {
       lastEventId: state.lastEventId,
       updatedAt: state.updatedAt,
       history,
-      ephemeralStepContext
+      ephemeralStepContext,
+      workingMemory: state.workingMemory
     };
   }
 }

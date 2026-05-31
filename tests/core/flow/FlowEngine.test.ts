@@ -9,6 +9,8 @@ import { ActionExecutor } from '../../../core/flow/ActionExecutor';
 import { LLMAdapter } from '../../../core/llm/LLMAdapter';
 import { SkillRegistry } from '../../../core/skills/SkillRegistry';
 import { PolicyEngine } from '../../../core/policy/PolicyEngine';
+import { ToolRegistry } from '../../../core/tools/ToolRegistry';
+import { WorkingMemoryStore } from '../../../core/memory/WorkingMemoryStore';
 
 class MockLLMAdapter implements LLMAdapter {
   constructor(public responseContent: string) {}
@@ -341,5 +343,80 @@ describe('FlowEngine', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain('timed out');
+  });
+
+  it('stores successful tool results in workingMemoryStore and passes snapshot to state', async () => {
+    const eventLog = new InMemoryEventLog();
+    const stateResolver = new StateResolver();
+    const contextBuilder = new ContextBuilder();
+    const promptBuilder = new PromptBuilder();
+    const decisionParser = new DecisionParser();
+    const policyEngine = new PolicyEngine();
+    const skillRegistry = new SkillRegistry();
+    const toolRegistry = new ToolRegistry();
+    
+    const mockTool = {
+      execute: async () => ({ success: true, message: 'File read', data: { content: 'hello file content' } })
+    };
+    toolRegistry.getToolForAction = () => mockTool as any;
+    const actionExecutor = new ActionExecutor(skillRegistry, toolRegistry);
+    const workingMemoryStore = new WorkingMemoryStore();
+
+    let calls = 0;
+    const mockLlm = {
+      generate: async () => {
+        calls++;
+        if (calls === 1) {
+          return {
+            content: JSON.stringify({
+              intent: 'respond',
+              confidence: 0.9,
+              proposedAction: { type: 'read_file', payload: { path: 'a.txt' } }
+            })
+          };
+        }
+        return {
+          content: JSON.stringify({
+            intent: 'respond',
+            confidence: 0.9,
+            proposedAction: { type: 'send_message', payload: { message: 'Done' } }
+          })
+        };
+      }
+    };
+
+    const flowEngine = new FlowEngine(
+      eventLog,
+      stateResolver,
+      contextBuilder,
+      promptBuilder,
+      mockLlm as any,
+      decisionParser,
+      policyEngine,
+      actionExecutor,
+      undefined,
+      {
+        maxSteps: 3,
+        maxToolCalls: 2,
+        stopOnPolicyRejection: true,
+        stopOnToolError: true,
+        allowRetries: false,
+        maxRetries: 0
+      },
+      workingMemoryStore
+    );
+
+    const result = await flowEngine.run({
+      input: 'please read a.txt',
+      eventId: 'evt-1'
+    });
+
+    expect(result.success).toBe(true);
+    expect(workingMemoryStore.has('a.txt')).toBe(true);
+    const entry = workingMemoryStore.get('a.txt');
+    expect(entry?.kind).toBe('file');
+    expect(entry?.content).toBe('hello file content');
+    expect(result.state?.workingMemory).toHaveLength(1);
+    expect(result.state?.workingMemory?.[0]?.content).toBe('hello file content');
   });
 });

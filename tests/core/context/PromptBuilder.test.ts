@@ -104,4 +104,45 @@ describe('PromptBuilder', () => {
     const prompt = builder.build(context);
     expect(prompt).not.toContain('Previous Tool Result:');
   });
+
+  it('should render Working Memory section when workingMemory contains entries', () => {
+    const builder = new PromptBuilder();
+    const context: BuiltContext = {
+      messageCount: 1,
+      workingMemory: [
+        {
+          id: 'wm-1',
+          kind: 'file',
+          source: 'a.txt',
+          actionType: 'read_file',
+          content: 'line1\nline2',
+          loadedAt: new Date()
+        },
+        {
+          id: 'wm-2',
+          kind: 'tool_result',
+          source: 'https://example.com',
+          actionType: 'read_url',
+          data: { success: true },
+          loadedAt: new Date()
+        }
+      ]
+    };
+
+    const prompt = builder.build(context);
+    expect(prompt).toContain('Working Memory (Artifacts retrieved during this session):');
+    expect(prompt).toContain('- [file] "a.txt" (obtained via read_file):');
+    expect(prompt).toContain('  line1');
+    expect(prompt).toContain('  line2');
+    expect(prompt).toContain('- [tool_result] "https://example.com" (obtained via read_url):');
+    expect(prompt).toContain('Data: {"success":true}');
+  });
+
+  it('should always include Retrieval Rule (MANDATORY) instructions', () => {
+    const builder = new PromptBuilder();
+    const context: BuiltContext = { messageCount: 1 };
+    const prompt = builder.build(context);
+    expect(prompt).toContain('Retrieval Rule (MANDATORY)');
+    expect(prompt).toContain('Do NOT use the "none" action');
+  });
 });

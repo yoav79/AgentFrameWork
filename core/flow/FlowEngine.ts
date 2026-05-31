@@ -17,6 +17,7 @@ import { StepResult } from '../flow/StepResult';
 import { ResultSanitizer } from '../flow/ResultSanitizer';
 import { FlowConfig } from '../flow/FlowConfig';
 import { ActionCatalog } from '../actions/ActionCatalog';
+import { WorkingMemoryStore } from '../memory/WorkingMemoryStore';
 
 export interface FlowRunInput {
   input: string;
@@ -50,7 +51,8 @@ export class FlowEngine {
     private readonly policyEngine: PolicyEngine,
     private readonly actionExecutor: ActionExecutor,
     private readonly memoryReader?: MemoryReader,
-    private readonly flowConfig?: FlowConfig
+    private readonly flowConfig?: FlowConfig,
+    private readonly workingMemoryStore?: WorkingMemoryStore
   ) {}
 
   public async run(input: FlowRunInput): Promise<FlowRunResult> {
@@ -71,6 +73,9 @@ export class FlowEngine {
         const stepPromise = (async () => {
           const events = this.eventLog.getAll();
           lastState = this.stateResolver.resolve(events);
+          if (this.workingMemoryStore) {
+            lastState.workingMemory = this.workingMemoryStore.snapshot();
+          }
 
           let history;
           if (this.memoryReader) {
@@ -224,6 +229,29 @@ export class FlowEngine {
 
             if (!isTerminal) {
               accumulatedData = { ...accumulatedData, ...actionResult.data };
+
+              if (this.workingMemoryStore) {
+                const payload = lastDecision.proposedAction?.payload as any;
+                const source = payload?.path
+                  ?? payload?.url
+                  ?? payload?.command
+                  ?? actionType;
+
+                const kind = actionType === 'read_file' ? 'file' as const : 'tool_result' as const;
+
+                this.workingMemoryStore.set({
+                  id: `wm-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+                  kind,
+                  source,
+                  actionType,
+                  content: typeof actionResult.data === 'object' && actionResult.data !== null
+                    ? (actionResult.data as any).content
+                    : undefined,
+                  data: actionResult.data,
+                  metadata: { message: actionResult.message },
+                  loadedAt: new Date()
+                });
+              }
             }
           } else {
             this.eventLog.append({

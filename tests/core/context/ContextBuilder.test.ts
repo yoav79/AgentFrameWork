@@ -15,7 +15,8 @@ describe('ContextBuilder', () => {
       messageCount: 0,
       lastEventId: undefined,
       updatedAt: undefined,
-      history: undefined
+      history: undefined,
+      workingMemory: undefined
     });
   });
 
@@ -62,5 +63,23 @@ describe('ContextBuilder', () => {
     const context = builder.build(state, undefined, ephemeral);
     
     expect(context.ephemeralStepContext).toEqual(ephemeral);
+  });
+
+  it('should include workingMemory from state if present', () => {
+    const builder = new ContextBuilder();
+    const workingMemory = [
+      {
+        id: 'wm-1',
+        kind: 'file' as const,
+        source: 'a.txt',
+        actionType: 'read_file',
+        content: 'hello',
+        loadedAt: new Date()
+      }
+    ];
+    const state: State = { messageCount: 1, workingMemory };
+    const context = builder.build(state);
+    
+    expect(context.workingMemory).toEqual(workingMemory);
   });
 });

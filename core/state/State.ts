@@ -1,3 +1,5 @@
+import { WorkingMemoryEntry } from '../memory/WorkingMemoryEntry';
+
 export interface State {
   lastUserMessage?: string;
   projectId?: string;
@@ -5,4 +7,5 @@ export interface State {
   messageCount: number;
   lastEventId?: string;
   updatedAt?: Date;
+  workingMemory?: WorkingMemoryEntry[];
 }

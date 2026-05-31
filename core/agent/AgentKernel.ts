@@ -15,6 +15,7 @@ import { AgentStep } from '../flow/AgentStep';
 import { StepResult } from '../flow/StepResult';
 import { FlowConfig, DEFAULT_FLOW_CONFIG } from '../flow/FlowConfig';
 import { FlowEngine } from '../flow/FlowEngine';
+import { WorkingMemoryStore } from '../memory/WorkingMemoryStore';
 
 export interface AgentRunInput {
   input: string;
@@ -39,6 +40,7 @@ export interface AgentRunResult {
 
 export class AgentKernel {
   private readonly flowEngine: FlowEngine;
+  private readonly workingMemoryStore: WorkingMemoryStore;
 
   constructor(
     private readonly eventLog: EventLog,
@@ -52,6 +54,7 @@ export class AgentKernel {
     private readonly memoryReader?: MemoryReader,
     private readonly flowConfig: FlowConfig = DEFAULT_FLOW_CONFIG
   ) {
+    this.workingMemoryStore = new WorkingMemoryStore();
     this.flowEngine = new FlowEngine(
       eventLog,
       stateResolver,
@@ -62,7 +65,8 @@ export class AgentKernel {
       policyEngine,
       actionExecutor,
       memoryReader,
-      flowConfig
+      flowConfig,
+      this.workingMemoryStore
     );
   }
 
