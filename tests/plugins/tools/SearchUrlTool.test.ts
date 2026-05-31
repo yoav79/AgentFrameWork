@@ -1,6 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import { SearchUrlTool } from '../../../plugins/tools/SearchUrlTool';
 
+interface SearchUrlResultData {
+  contentSnippet?: string;
+  matchCount?: number;
+  snippets?: string[];
+}
+
 describe('SearchUrlTool', () => {
   it('should only handle search_url action', () => {
     const tool = new SearchUrlTool();
@@ -22,7 +28,8 @@ describe('SearchUrlTool', () => {
     try {
       const result = await tool.execute({ url: 'https://example.com' });
       expect(result.success).toBe(true);
-      expect(result.data?.contentSnippet).toBe('Hello World');
+      const data = result.data as SearchUrlResultData | undefined;
+      expect(data?.contentSnippet).toBe('Hello World');
     } finally {
       global.fetch = originalFetch;
     }
@@ -42,8 +49,9 @@ describe('SearchUrlTool', () => {
     try {
       const result = await tool.execute({ url: 'https://example.com', query: 'keyword' });
       expect(result.success).toBe(true);
-      expect(result.data?.matchCount).toBe(1);
-      expect(result.data?.snippets[0]).toContain('special keyword here');
+      const data = result.data as SearchUrlResultData | undefined;
+      expect(data?.matchCount).toBe(1);
+      expect(data?.snippets?.[0]).toContain('special keyword here');
     } finally {
       global.fetch = originalFetch;
     }
