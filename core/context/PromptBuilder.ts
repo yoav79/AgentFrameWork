@@ -1,4 +1,5 @@
 import { BuiltContext } from './ContextBuilder';
+import { ActionCatalog } from '../actions/ActionCatalog';
 
 export class PromptBuilder {
   public build(context: BuiltContext): string {
@@ -15,6 +16,12 @@ Action: ${context.ephemeralStepContext.actionType}`;
       }
       ephemeralSection += '\n\nCRITICAL RULE: You have just received a tool result. You MUST now use the "send_message" action to communicate this result to the user. DO NOT use "none".\n\n';
     }
+
+    const availableActionsList = ActionCatalog.getActions()
+      .map((action, i) => `${i + 1}. ${action.type}\n   - ${action.description.split('\n').join('\n   ')}`)
+      .join('\n');
+
+    const expectedActionTypes = ActionCatalog.getActionTypes().join(' | ');
 
     let prompt = `You are an AI assistant.
 Your task is to respond to the user based on the following context:
@@ -35,27 +42,14 @@ You HAVE the capability to execute the actions listed below. Do NOT claim that y
 Do NOT invent action types. If no action applies, use 'none' or 'send_message'.
 
 Available Actions:
-1. send_message
-   - Use when you can respond to the user.
-   - Payload expected: { "message": "..." }
-2. none
-   - Use when there is no useful or safe action.
-   - Payload expected: {}
-3. read_file
-   - Use ONLY when you need to read a specific file from the workspace.
-   - Payload expected: { "path": "relative/path.ts" }
-   - MUST use relative paths. NO absolute paths.
-   - NO path traversal (..).
-   - DO NOT read secrets, .env, .git, or node_modules.
-   - DO NOT read directories.
-   - If the user provides just a filename (e.g. 'text.txt'), assume it is in the root directory (i.e. use "text.txt").
+${availableActionsList}
 
 ${ephemeralSection}JSON Schema Expected:
 {
   "intent": "respond | unknown",
   "confidence": 0.9,
   "proposedAction": {
-    "type": "send_message | none | read_file",
+    "type": "${expectedActionTypes}",
     "payload": {}
   },
   "reasoning": "brief explanation"

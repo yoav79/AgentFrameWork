@@ -1,9 +1,29 @@
 import { Decision } from '../schemas/Decision';
 import { PolicyDecision } from './PolicyDecision';
+import { ActionCatalog } from '../actions/ActionCatalog';
 
 export class PolicyEngine {
   public evaluate(decision: Decision): PolicyDecision {
-    if (decision.proposedAction && decision.proposedAction.type === 'none') {
+    if (!decision.proposedAction) {
+      return {
+        allowed: false,
+        reason: 'No proposed action specified.',
+        severity: 'warning'
+      };
+    }
+
+    const type = decision.proposedAction.type;
+    const actionDef = ActionCatalog.getAction(type);
+
+    if (!actionDef) {
+      return {
+        allowed: false,
+        reason: `Action type "${type}" is unknown or not permitted.`,
+        severity: 'critical'
+      };
+    }
+
+    if (type === 'none') {
       return {
         allowed: true,
         reason: 'Action "none" is always allowed as it is harmless.',
@@ -11,50 +31,41 @@ export class PolicyEngine {
       };
     }
 
-    if (decision.confidence < 0.6) {
+    if (decision.confidence < actionDef.minConfidence) {
+      if (type === 'send_message') {
+        return {
+          allowed: false,
+          reason: `Confidence score (${decision.confidence}) is below the required threshold of 0.6.`,
+          severity: 'warning'
+        };
+      }
       return {
         allowed: false,
-        reason: `Confidence score (${decision.confidence}) is below the required threshold of 0.6.`,
+        reason: `Action "${type}" requires a confidence score of at least ${actionDef.minConfidence} (current: ${decision.confidence}).`,
         severity: 'warning'
       };
     }
 
-    if (decision.proposedAction) {
-      if (decision.proposedAction.type === 'send_message') {
-        return {
-          allowed: true,
-          reason: 'Action "send_message" is allowed with sufficient confidence.',
-          severity: 'info'
-        };
-      }
-
-      if (decision.proposedAction.type === 'read_file') {
-        if (decision.confidence < 0.85) {
-          return {
-            allowed: false,
-            reason: `Action "read_file" requires a confidence score of at least 0.85 (current: ${decision.confidence}).`,
-            severity: 'warning'
-          };
-        }
-        return {
-          allowed: true,
-          reason: 'Action "read_file" is allowed with high confidence.',
-          severity: 'info'
-        };
-      }
-
+    if (type === 'send_message') {
       return {
-        allowed: false,
-        reason: `Action type "${decision.proposedAction.type}" is unknown or not permitted.`,
-        severity: 'critical'
+        allowed: true,
+        reason: 'Action "send_message" is allowed with sufficient confidence.',
+        severity: 'info'
       };
     }
 
-    // Default deny if there's no proposed action type matched
+    if (type === 'read_file') {
+      return {
+        allowed: true,
+        reason: 'Action "read_file" is allowed with high confidence.',
+        severity: 'info'
+      };
+    }
+
     return {
       allowed: false,
-      reason: 'No proposed action specified.',
-      severity: 'warning'
+      reason: `Action type "${type}" is unknown or not permitted.`,
+      severity: 'critical'
     };
   }
 }

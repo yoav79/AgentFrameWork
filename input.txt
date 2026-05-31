@@ -1,0 +1,2 @@
+lee el archivo text.txt
+lee el archivo text.txt

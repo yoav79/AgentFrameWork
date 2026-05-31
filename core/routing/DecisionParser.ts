@@ -1,5 +1,6 @@
 import { Decision } from '../schemas/Decision';
 import { FrameworkError } from '../errors/FrameworkError';
+import { ActionCatalog } from '../actions/ActionCatalog';
 
 export class DecisionParser {
   public parse(raw: string): Decision {
@@ -22,8 +23,14 @@ export class DecisionParser {
         throw new FrameworkError('VALIDATION_ERROR', 'Decision confidence must be a number between 0 and 1');
       }
 
-      if (!parsed.proposedAction || !parsed.proposedAction.type || (parsed.proposedAction.type !== 'send_message' && parsed.proposedAction.type !== 'none' && parsed.proposedAction.type !== 'read_file')) {
-        throw new FrameworkError('VALIDATION_ERROR', 'Decision must have a valid proposedAction.type ("send_message", "none", or "read_file")');
+      if (!parsed.proposedAction || !parsed.proposedAction.type || !ActionCatalog.isValidAction(parsed.proposedAction.type)) {
+        const typesStr = ActionCatalog.getActionTypes().map(t => `"${t}"`);
+        let typesJoined = typesStr.join(', ');
+        if (typesStr.length > 1) {
+          const last = typesStr.pop();
+          typesJoined = typesStr.join(', ') + ', or ' + last;
+        }
+        throw new FrameworkError('VALIDATION_ERROR', `Decision must have a valid proposedAction.type (${typesJoined})`);
       }
 
       if (parsed.proposedAction.type === 'read_file') {
