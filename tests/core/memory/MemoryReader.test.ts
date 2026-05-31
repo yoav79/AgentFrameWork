@@ -69,7 +69,7 @@ describe('MemoryReader', () => {
 
   it('respects the limit option', () => {
     const log = new InMemoryEventLog();
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 55; i++) {
       log.append({
         id: `${i}`, type: EventType.UserMessageReceived, source: EventSource.USER, timestamp: new Date(),
         payload: { message: `msg ${i}` }
@@ -79,12 +79,12 @@ describe('MemoryReader', () => {
     const reader = new MemoryReader(log);
     
     const h1 = reader.read();
-    expect(h1.eventCount).toBe(20);
-    expect(h1.recentUserMessages[0]).toBe('msg 5'); // 25 - 20 = 5
+    expect(h1.eventCount).toBe(50);
+    expect(h1.recentUserMessages[0]).toBe('msg 5'); // 55 - 50 = 5
 
     const h2 = reader.read({ limit: 5 });
     expect(h2.eventCount).toBe(5);
-    expect(h2.recentUserMessages[0]).toBe('msg 20');
+    expect(h2.recentUserMessages[0]).toBe('msg 50');
   });
 
   it('truncates long texts', () => {

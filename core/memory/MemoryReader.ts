@@ -7,7 +7,7 @@ export class MemoryReader {
   constructor(private readonly eventLog: EventLog) {}
 
   public read(options?: { limit?: number; sessionId?: string; projectId?: string }): HistoryContext {
-    const limit = options?.limit ?? 20;
+    const limit = options?.limit ?? 50;
     let allEvents = this.eventLog.getAll();
 
     if (options?.sessionId !== undefined) {
