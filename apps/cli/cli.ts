@@ -25,9 +25,23 @@ async function bootstrap() {
   const isPersistMode = args.includes('--persist');
   
   let projectId;
+  let maxSteps = 2;
+  let maxToolCalls = 1;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--project') {
       projectId = args[i + 1];
+    }
+    if (args[i] === '--max-steps') {
+      const val = args[i + 1];
+      if (val !== undefined) {
+        maxSteps = parseInt(val, 10);
+      }
+    }
+    if (args[i] === '--max-tool-calls') {
+      const val = args[i + 1];
+      if (val !== undefined) {
+        maxToolCalls = parseInt(val, 10);
+      }
     }
   }
 
@@ -46,7 +60,15 @@ async function bootstrap() {
   const createAgent = (id?: string, root?: string) => AgentFactory.create(llmAdapter, {
     persist: isPersistMode,
     projectId: id,
-    workspaceRoot: root ?? (id ? directoryAdapter.getProjectPath(id) : process.cwd())
+    workspaceRoot: root ?? (id ? directoryAdapter.getProjectPath(id) : process.cwd()),
+    flowConfig: {
+      maxSteps,
+      maxToolCalls,
+      stopOnPolicyRejection: true,
+      stopOnToolError: true,
+      allowRetries: false,
+      maxRetries: 0
+    }
   });
   
   const handler = new CommandHandler(args, createAgent, directoryAdapter);
