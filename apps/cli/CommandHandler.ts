@@ -125,6 +125,10 @@ export class CommandHandler {
         i++; // skip value
       } else if (arg === '--api-key') {
         i++; // skip value
+      } else if (arg === '--max-steps') {
+        i++; // skip value
+      } else if (arg === '--max-tool-calls') {
+        i++; // skip value
       } else if (!arg.startsWith('-')) {
         positional.push(arg);
       }
