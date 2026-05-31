@@ -100,4 +100,37 @@ describe('MemoryReader', () => {
     expect(history.recentUserMessages[0]!.length).toBe(503); // 500 + '...'
     expect(history.recentUserMessages[0]!.endsWith('...')).toBe(true);
   });
+
+  it('isolates memory history by sessionId and projectId', () => {
+    const log = new InMemoryEventLog();
+    log.append({
+      id: '1', type: EventType.UserMessageReceived, source: EventSource.USER, timestamp: new Date(),
+      payload: { message: 'hello session 1', sessionId: 'session-1', projectId: 'project-1' }
+    });
+    log.append({
+      id: '2', type: EventType.UserMessageReceived, source: EventSource.USER, timestamp: new Date(),
+      payload: { message: 'hello session 2', sessionId: 'session-2', projectId: 'project-1' }
+    });
+    log.append({
+      id: '3', type: EventType.UserMessageReceived, source: EventSource.USER, timestamp: new Date(),
+      payload: { message: 'hello project 2', sessionId: 'session-1', projectId: 'project-2' }
+    });
+    log.append({
+      id: '4', type: EventType.UserMessageReceived, source: EventSource.USER, timestamp: new Date(),
+      payload: { message: 'hello global (no session/project)' }
+    });
+
+    const reader = new MemoryReader(log);
+    
+    const h1 = reader.read({ sessionId: 'session-1', projectId: 'project-1' });
+    expect(h1.recentUserMessages).toContain('hello session 1');
+    expect(h1.recentUserMessages).toContain('hello global (no session/project)');
+    expect(h1.recentUserMessages).not.toContain('hello session 2');
+    expect(h1.recentUserMessages).not.toContain('hello project 2');
+
+    const h2 = reader.read({ sessionId: 'session-2' });
+    expect(h2.recentUserMessages).toContain('hello session 2');
+    expect(h2.recentUserMessages).toContain('hello global (no session/project)');
+    expect(h2.recentUserMessages).not.toContain('hello session 1');
+  });
 });

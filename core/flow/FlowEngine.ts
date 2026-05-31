@@ -71,7 +71,10 @@ export class FlowEngine {
         let history;
         if (this.memoryReader) {
           try {
-            history = this.memoryReader.read();
+            history = this.memoryReader.read({
+              sessionId: input.sessionId,
+              projectId: input.projectId
+            });
           } catch (e) {
             console.warn('MemoryReader failed, proceeding without history', e);
           }
@@ -116,7 +119,11 @@ export class FlowEngine {
               reason: policyDecision.reason || 'Action rejected by policy engine.',
               severity: policyDecision.severity,
               actionType,
-              confidence: lastDecision.confidence
+              confidence: lastDecision.confidence,
+              runId: input.eventId,
+              stepId: agentStep.id,
+              sessionId: input.sessionId,
+              projectId: input.projectId
             }
           });
 
@@ -157,7 +164,11 @@ export class FlowEngine {
             payload: {
               actionType,
               success: true,
-              message: actionResult.message
+              message: actionResult.message,
+              runId: input.eventId,
+              stepId: agentStep.id,
+              sessionId: input.sessionId,
+              projectId: input.projectId
             }
           });
 
@@ -172,7 +183,11 @@ export class FlowEngine {
             timestamp: new Date(),
             payload: {
               actionType,
-              error: actionResult.error || 'Action execution failed'
+              error: actionResult.error || 'Action execution failed',
+              runId: input.eventId,
+              stepId: agentStep.id,
+              sessionId: input.sessionId,
+              projectId: input.projectId
             }
           });
           return {

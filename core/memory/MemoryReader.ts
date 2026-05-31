@@ -6,9 +6,24 @@ import { UserMessageReceivedPayload, ActionExecutedPayload, ActionFailedPayload,
 export class MemoryReader {
   constructor(private readonly eventLog: EventLog) {}
 
-  public read(options?: { limit?: number }): HistoryContext {
+  public read(options?: { limit?: number; sessionId?: string; projectId?: string }): HistoryContext {
     const limit = options?.limit ?? 20;
-    const allEvents = this.eventLog.getAll();
+    let allEvents = this.eventLog.getAll();
+
+    if (options?.sessionId !== undefined) {
+      allEvents = allEvents.filter(event => {
+        const payload = event.payload as any;
+        return payload.sessionId === undefined || payload.sessionId === options.sessionId;
+      });
+    }
+
+    if (options?.projectId !== undefined) {
+      allEvents = allEvents.filter(event => {
+        const payload = event.payload as any;
+        return payload.projectId === undefined || payload.projectId === options.projectId;
+      });
+    }
+
     const recentEvents = allEvents.slice(-limit);
 
     const context: HistoryContext = {

@@ -12,17 +12,29 @@ export interface PolicyRejectedPayload {
   severity?: string;
   actionType?: string;
   confidence?: number;
+  runId?: string;
+  stepId?: string;
+  sessionId?: string;
+  projectId?: string;
 }
 
 export interface ActionExecutedPayload {
   actionType: string;
   success: boolean;
   message?: string;
+  runId?: string;
+  stepId?: string;
+  sessionId?: string;
+  projectId?: string;
 }
 
 export interface ActionFailedPayload {
   actionType: string;
   error: string;
+  runId?: string;
+  stepId?: string;
+  sessionId?: string;
+  projectId?: string;
 }
 
 export interface Event<TPayload = unknown> {
