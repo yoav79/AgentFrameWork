@@ -57,12 +57,25 @@ describe('FlowEngine', () => {
     expect(result.trace?.steps[0]!.actionType).toBe('send_message');
   });
 
-  it('runs tool execution and synthetic message generation', async () => {
-    const toolJson = JSON.stringify({
+  it('runs tool execution followed by send_message', async () => {
+    const json1 = JSON.stringify({
       intent: 'unknown',
       confidence: 1,
       proposedAction: { type: 'read_file', payload: { path: 'test.txt' } }
     });
+    const json2 = JSON.stringify({
+      intent: 'respond',
+      confidence: 1,
+      proposedAction: { type: 'send_message', payload: { message: 'synthetic message' } }
+    });
+
+    let callCount = 0;
+    const llmAdapter = {
+      generate: async () => {
+        callCount++;
+        return { content: callCount === 1 ? json1 : json2 };
+      }
+    } as any;
     
     const executor = new ActionExecutor(new SkillRegistry());
     executor.execute = async (decision) => {
@@ -77,7 +90,7 @@ describe('FlowEngine', () => {
       new StateResolver(),
       new ContextBuilder(),
       new PromptBuilder(),
-      new MockLLMAdapter(toolJson),
+      llmAdapter,
       new DecisionParser(),
       new PolicyEngine(),
       executor,

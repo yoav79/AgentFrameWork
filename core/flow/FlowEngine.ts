@@ -61,6 +61,7 @@ export class FlowEngine {
       let lastResult: SkillResult | undefined;
       let lastDecision: Decision | undefined;
       let lastState: State | undefined;
+      let accumulatedData: any = undefined;
 
       while (stepCount < maxSteps) {
         stepCount++;
@@ -159,6 +160,10 @@ export class FlowEngine {
               message: actionResult.message
             }
           });
+
+          if (actionType !== 'send_message' && actionType !== 'none') {
+            accumulatedData = { ...accumulatedData, ...actionResult.data };
+          }
         } else {
           this.eventLog.append({
             id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -183,7 +188,7 @@ export class FlowEngine {
         if (actionType === 'send_message' || actionType === 'none') {
           return {
             success: true,
-            result: actionResult,
+            result: accumulatedData ? { ...actionResult, data: { ...actionResult.data, ...accumulatedData } } : actionResult,
             decision: lastDecision,
             state: lastState,
             trace: { steps: trace.getSteps(), results: trace.getResults(), success: trace.isSuccessful() }
@@ -193,7 +198,7 @@ export class FlowEngine {
         if (stepCount >= maxSteps) {
           return {
             success: true,
-            result: actionResult,
+            result: accumulatedData ? { ...actionResult, data: { ...actionResult.data, ...accumulatedData } } : actionResult,
             decision: lastDecision,
             state: lastState,
             trace: { steps: trace.getSteps(), results: trace.getResults(), success: trace.isSuccessful() }
@@ -201,63 +206,16 @@ export class FlowEngine {
         }
 
         // Tool action succeeded and is not terminal.
-        const toolData = actionResult.data as Record<string, unknown> | undefined;
-        const fileContent = toolData?.content as string | undefined;
-        const syntheticMessage = fileContent
-          ? `${actionResult.message}\n\n${fileContent}`
-          : actionResult.message || 'Tool executed successfully.';
-
-        const syntheticDecision: Decision = {
-          intent: 'respond',
-          confidence: 1.0,
-          proposedAction: {
-            type: 'send_message',
-            payload: { message: syntheticMessage }
-          }
-        };
-
-        const syntheticResult = await this.actionExecutor.execute(syntheticDecision);
-
-        const syntheticStep: AgentStep = {
-          id: `step-${Date.now()}`,
-          actionType: 'send_message',
-          decision: syntheticDecision,
-          startedAt: new Date(),
-          endedAt: new Date(),
-          success: syntheticResult.success
-        };
-        trace.addStep(syntheticStep);
-        trace.addResult({
-          step: syntheticStep,
-          success: syntheticResult.success,
-          message: syntheticResult.message,
-          data: ResultSanitizer.sanitizeData(syntheticResult.data)
-        });
-
-        this.eventLog.append({
-          id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-          type: EventType.ActionExecuted,
-          source: EventSource.SYSTEM,
-          timestamp: new Date(),
-          payload: {
-            actionType: 'send_message',
-            success: true,
-            message: syntheticResult.message
-          }
-        });
-
-        return {
-          success: true,
-          result: { ...syntheticResult, data: actionResult.data },
-          decision: syntheticDecision,
-          state: lastState,
-          trace: { steps: trace.getSteps(), results: trace.getResults(), success: trace.isSuccessful() }
+        ephemeralStepContext = {
+          actionType,
+          message: actionResult.message,
+          data: actionResult.data
         };
       }
 
       return {
         success: lastResult ? lastResult.success : false,
-        result: lastResult,
+        result: accumulatedData && lastResult ? { ...lastResult, data: { ...lastResult.data, ...accumulatedData } } : lastResult,
         decision: lastDecision,
         state: lastState,
         trace: { steps: trace.getSteps(), results: trace.getResults(), success: trace.isSuccessful() }

@@ -307,14 +307,25 @@ describe('AgentKernel', () => {
     expect(traceData.base64Data).toBeUndefined();
   });
 
-  it('should execute multi-step flow: read_file result synthesized as send_message by Kernel', async () => {
+  it('should execute multi-step flow: read_file result followed by send_message by LLM', async () => {
     const json1 = JSON.stringify({
       intent: 'unknown',
       confidence: 1,
       proposedAction: { type: 'read_file', payload: { path: 'test.txt' } }
     });
+    const json2 = JSON.stringify({
+      intent: 'respond',
+      confidence: 1,
+      proposedAction: { type: 'send_message', payload: { message: 'hello world' } }
+    });
 
-    const llmAdapter = new MockLLMAdapter(json1);
+    let callCount = 0;
+    const llmAdapter = {
+      generate: async () => {
+        callCount++;
+        return { content: callCount === 1 ? json1 : json2 };
+      }
+    } as any;
     const generateSpy = vi.spyOn(llmAdapter, 'generate');
 
     const actionExecutor = new ActionExecutor(new SkillRegistry());
@@ -322,7 +333,6 @@ describe('AgentKernel', () => {
       if (decision.proposedAction?.type === 'read_file') {
         return { success: true, message: 'read ok', data: { content: 'hello world', path: 'test.txt', size: 11 } };
       }
-      // send_message synthetic step — called by the Kernel, not the LLM
       return { success: true, message: decision.proposedAction?.payload?.message as string };
     };
 
@@ -333,12 +343,12 @@ describe('AgentKernel', () => {
 
     const result = await kernel.run({ input: 'read test.txt' });
 
-    // LLM is called ONLY ONCE — Kernel synthesizes step 2 deterministically
-    expect(generateSpy).toHaveBeenCalledTimes(1);
+    // LLM is called TWICE (multi-step)
+    expect(generateSpy).toHaveBeenCalledTimes(2);
     expect(result.success).toBe(true);
     expect(result.result?.message).toContain('hello world');
     
-    // Trace still has 2 steps: read_file + synthesized send_message
+    // Trace has 2 steps: read_file + send_message
     expect(result.trace?.steps.length).toBe(2);
     expect(result.trace?.results.length).toBe(2);
     expect(result.trace?.steps[0]!.actionType).toBe('read_file');
@@ -371,13 +381,25 @@ describe('AgentKernel', () => {
     expect(result.trace?.steps.length).toBe(1);
   });
 
-  it('should synthesize send_message and not loop when read_file succeeds', async () => {
-    const validJson = JSON.stringify({
+  it('should execute send_message and not loop when read_file succeeds', async () => {
+    const json1 = JSON.stringify({
       intent: 'unknown',
       confidence: 1,
       proposedAction: { type: 'read_file', payload: { path: 'test.txt' } }
     });
-    const llmAdapter = new MockLLMAdapter(validJson);
+    const json2 = JSON.stringify({
+      intent: 'respond',
+      confidence: 1,
+      proposedAction: { type: 'send_message', payload: { message: 'file content' } }
+    });
+
+    let callCount = 0;
+    const llmAdapter = {
+      generate: async () => {
+        callCount++;
+        return { content: callCount === 1 ? json1 : json2 };
+      }
+    } as any;
     const generateSpy = vi.spyOn(llmAdapter, 'generate');
     
     const actionExecutor = new ActionExecutor(new SkillRegistry());
@@ -394,10 +416,10 @@ describe('AgentKernel', () => {
     );
 
     const result = await kernel.run({ input: 'read forever' });
-    // LLM called only ONCE — Kernel short-circuits with synthetic send_message
-    expect(generateSpy).toHaveBeenCalledTimes(1);
+    // LLM called TWICE
+    expect(generateSpy).toHaveBeenCalledTimes(2);
     expect(result.success).toBe(true);
-    // Trace has 2 steps: read_file + synthesized send_message
+    // Trace has 2 steps: read_file + send_message
     expect(result.trace?.steps.length).toBe(2);
   });
 
