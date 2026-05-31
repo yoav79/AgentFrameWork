@@ -78,6 +78,9 @@ export class CommandHandler {
           sessionId: parsedArgs.sessionId
         });
         this.renderer.stopSpinner();
+        if (parsedArgs.debug && result.trace) {
+          this.renderer.renderDebug('Execution Trace', result.trace);
+        }
         this.renderer.renderResponse(result);
         if (!result.success) {
           process.exitCode = 1;
