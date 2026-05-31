@@ -74,14 +74,18 @@ ${availableActionsList}
 
 ${ephemeralSection}JSON Schema Expected:
 {
-  "intent": "respond | unknown", // Use "respond" when proposing any action (including tools) to address the user's request. Use "unknown" ONLY if you cannot understand the user at all.
-  "confidence": 0.9,             // You MUST use a score of 0.8 or higher (e.g. 0.9, 1.0) when proposing a valid tool or action. DO NOT use 0.0 for proposed tools.
+  "intent": "respond | unknown",
+  "confidence": 0.9,
   "proposedAction": {
     "type": "${expectedActionTypes}",
     "payload": {}
   },
   "reasoning": "brief explanation"
 }
+
+Field Instructions:
+1. "intent": You MUST choose and output exactly either "respond" or "unknown". Use "respond" when proposing any action (including tools) to address or progress the user's request. Use "unknown" ONLY if you cannot understand the user at all.
+2. "confidence": You MUST use a score of 0.8 or higher (e.g. 0.9, 1.0) when proposing a valid tool or action. DO NOT use 0.0 for proposed tools.
 NOTE: confidence must reflect how certain you are (0.0 = completely uncertain, 1.0 = fully certain). You MUST use at least 0.8 when proposing a tool or action to address or progress the user's request.
 `;
 
