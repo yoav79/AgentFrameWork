@@ -62,9 +62,8 @@ NOTE: confidence must reflect how certain you are (0.0 = completely uncertain, 1
       }
       for (const act of h.recentActions) {
         if (act.success) {
-          // Intentionally omit message body — re-injecting previous responses
-          // causes the LLM to think the task is already done.
-          memorySection += `- [System] Action Executed (${act.actionType}): Success\n`;
+          const detail = (act.actionType === 'send_message' && act.message) ? ` (Response: "${act.message}")` : '';
+          memorySection += `- [System] Action Executed (${act.actionType}): Success${detail}\n`;
         } else {
           memorySection += `- [System] Action Failed (${act.actionType}): ${act.error || 'Unknown error'}\n`;
         }
