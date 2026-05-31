@@ -39,8 +39,7 @@ Available Actions:
    - Use when you can respond to the user.
    - Payload expected: { "message": "..." }
 2. none
-   - Use ONLY when there is no useful or safe action to take (e.g. system background ticks).
-   - DO NOT use 'none' if the user explicitly sends a message or asks a question. Always use 'send_message' to reply instead, even if you are repeating a previous answer.
+   - Use when there is no useful or safe action.
    - Payload expected: {}
 3. read_file
    - Use ONLY when you need to read a specific file from the workspace.
@@ -54,13 +53,14 @@ Available Actions:
 ${ephemeralSection}JSON Schema Expected:
 {
   "intent": "respond | unknown",
-  "confidence": 0.0,
+  "confidence": 0.9,
   "proposedAction": {
     "type": "send_message | none | read_file",
     "payload": {}
   },
   "reasoning": "brief explanation"
 }
+NOTE: confidence must reflect how certain you are (0.0 = completely uncertain, 1.0 = fully certain). Use at least 0.8 when you have a clear action to perform.
 `;
 
     if (context.history) {
@@ -72,7 +72,9 @@ ${ephemeralSection}JSON Schema Expected:
       }
       for (const act of h.recentActions) {
         if (act.success) {
-          memorySection += `- [System] Action Executed (${act.actionType}): Success${act.message ? ' - ' + act.message : ''}\n`;
+          // Intentionally omit message body — re-injecting previous responses
+          // causes the LLM to think the task is already done.
+          memorySection += `- [System] Action Executed (${act.actionType}): Success\n`;
         } else {
           memorySection += `- [System] Action Failed (${act.actionType}): ${act.error || 'Unknown error'}\n`;
         }

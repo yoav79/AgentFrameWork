@@ -66,7 +66,7 @@ describe('PromptBuilder', () => {
     
     expect(prompt).toContain('Recent Memory:');
     expect(prompt).toContain('- [User] Message: "hello"');
-    expect(prompt).toContain('- [System] Action Executed (send_message): Success - hi');
+    expect(prompt).toContain('- [System] Action Executed (send_message): Success');
     expect(prompt).toContain('- [System] Action Failed (do_magic): fail');
     expect(prompt).toContain('- [System] Policy Rejected: Action "format" blocked (blocked)');
     expect(prompt).toContain('Last User Message:');
