@@ -281,7 +281,20 @@ describe('AgentKernel', () => {
       confidence: 1,
       proposedAction: { type: 'read_file', payload: { path: 'test.txt' } }
     });
-    const llmAdapter = new MockLLMAdapter(validJson);
+    let callCount = 0;
+    const llmAdapter = {
+      generate: async () => {
+        callCount++;
+        if (callCount === 1) return { content: validJson };
+        return {
+          content: JSON.stringify({
+            intent: 'respond',
+            confidence: 1,
+            proposedAction: { type: 'send_message', payload: { message: 'done' } }
+          })
+        };
+      }
+    } as any;
     const actionExecutor = new ActionExecutor(new SkillRegistry());
     actionExecutor.execute = async () => ({
       success: true,
@@ -453,7 +466,8 @@ describe('AgentKernel', () => {
     );
 
     const result = await kernel.run({ input: 'read once' });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Max steps reached without a terminal response');
     // Only 1 step is executed because maxSteps is 1
     expect(result.trace?.steps.length).toBe(1);
     expect(result.trace?.steps[0]!.actionType).toBe('read_file');

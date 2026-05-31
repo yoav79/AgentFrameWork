@@ -62,7 +62,20 @@ describe('AgentFactory', () => {
       proposedAction: { type: 'read_file', payload: { path: 'test.txt' } }
     });
     
-    const llmAdapter = new MockLLMAdapter(validJson);
+    let callCount = 0;
+    const llmAdapter = {
+      generate: async () => {
+        callCount++;
+        if (callCount === 1) return { content: validJson };
+        return {
+          content: JSON.stringify({
+            intent: 'respond',
+            confidence: 1,
+            proposedAction: { type: 'send_message', payload: { message: 'done' } }
+          })
+        };
+      }
+    } as any;
     const kernel = AgentFactory.create(llmAdapter, { workspaceRoot: tempDir });
 
     const result = await kernel.run({ input: 'read test.txt' });

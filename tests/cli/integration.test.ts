@@ -95,8 +95,21 @@ describe('CLI Smoke / Integration Tests', () => {
       proposedAction: { type: 'read_file', payload: { path: 'secret.txt' } }
     });
     
+    let callCount = 0;
     const llmAdapter = {
-      generate: async () => ({ content: validJson })
+      generate: async () => {
+        callCount++;
+        if (callCount === 1) {
+          return { content: validJson };
+        }
+        return {
+          content: JSON.stringify({
+            intent: 'respond',
+            confidence: 1,
+            proposedAction: { type: 'send_message', payload: { message: 'File read successfully' } }
+          })
+        };
+      }
     };
     
     const createAgent = (id?: string, root?: string) => AgentFactory.create(llmAdapter as any, {
