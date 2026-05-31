@@ -56,7 +56,7 @@ describe('CommandHandler Integration', () => {
     const handler = new CommandHandler(['--project', 'p1', 'hello'], mockCreateAgent, mockDirectoryAdapter as ProjectDirectoryAdapter);
     await handler.execute();
 
-    expect(mockCreateAgent).toHaveBeenCalledWith('p1', '/mock/projects/p1');
+    expect(mockCreateAgent).toHaveBeenCalledWith('p1', '/mock/projects/p1', undefined);
 
     expect(runSpy).toHaveBeenCalled();
     const contextArg = runSpy.mock.calls[0]![0];

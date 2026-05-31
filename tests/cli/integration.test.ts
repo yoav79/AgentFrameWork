@@ -74,7 +74,7 @@ describe('CLI Smoke / Integration Tests', () => {
     expect(output).toContain(`Workspace '${uniqueProject}' creado y seleccionado.`);
     expect(output).toContain('Mock LLM response');
 
-    const expectedLogPath = join(homedir(), '.agentframework', 'projects', uniqueProject, 'events.json');
+    const expectedLogPath = join(homedir(), '.agentframework', 'projects', uniqueProject, 'sessions', 'default.json');
     expect(existsSync(expectedLogPath)).toBe(true);
 
     // Clean up

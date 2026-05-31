@@ -66,7 +66,7 @@ Examples:
         return;
       }
       if (response.result && response.result.message) {
-        console.log(`\x1b[32m[Agent]\x1b[0m ${response.result.message}`);
+        console.log(`\x1b[32m[Agent] ${response.result.message}\x1b[0m`);
         if (response.result.data && response.result.data.content) {
           console.log(`\n\x1b[90m--- Archivo: ${response.result.data.path || 'Contenido'} ---\x1b[0m\n${response.result.data.content}\n\x1b[90m----------------------\x1b[0m`);
         }

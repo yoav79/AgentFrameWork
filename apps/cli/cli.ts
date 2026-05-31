@@ -57,9 +57,10 @@ async function bootstrap() {
 
   const directoryAdapter = new ProjectDirectoryAdapter();
 
-  const createAgent = (id?: string, root?: string) => AgentFactory.create(llmAdapter, {
+  const createAgent = (id?: string, root?: string, sessionId?: string) => AgentFactory.create(llmAdapter, {
     persist: isPersistMode,
     projectId: id,
+    sessionId: sessionId,
     workspaceRoot: root ?? (id ? directoryAdapter.getProjectPath(id) : process.cwd()),
     debug: args.includes('--debug'),
     flowConfig: {
