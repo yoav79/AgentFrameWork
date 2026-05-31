@@ -39,7 +39,8 @@ Available Actions:
    - Use when you can respond to the user.
    - Payload expected: { "message": "..." }
 2. none
-   - Use when there is no useful or safe action.
+   - Use ONLY when there is no useful or safe action to take (e.g. system background ticks).
+   - DO NOT use 'none' if the user explicitly sends a message or asks a question. Always use 'send_message' to reply instead, even if you are repeating a previous answer.
    - Payload expected: {}
 3. read_file
    - Use ONLY when you need to read a specific file from the workspace.
