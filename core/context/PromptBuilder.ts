@@ -2,6 +2,12 @@ import { BuiltContext } from './ContextBuilder';
 import { ActionCatalog } from '../actions/ActionCatalog';
 
 export class PromptBuilder {
+  private readonly actionCatalog: ActionCatalog;
+
+  constructor(actionCatalog?: ActionCatalog) {
+    this.actionCatalog = actionCatalog || new ActionCatalog(ActionCatalog.getActions());
+  }
+
   public build(context: BuiltContext): string {
     let ephemeralSection = '';
     if (context.ephemeralStepContext) {
@@ -17,11 +23,11 @@ Action: ${context.ephemeralStepContext.actionType}`;
       ephemeralSection += '\n\nCRITICAL RULE: You have just received a tool result. You MUST now use the "send_message" action to communicate this result to the user. DO NOT use "none".\n\n';
     }
 
-    const availableActionsList = ActionCatalog.getActions()
+    const availableActionsList = this.actionCatalog.getActions()
       .map((action, i) => `${i + 1}. ${action.type}\n   - ${action.description.split('\n').join('\n   ')}`)
       .join('\n');
 
-    const expectedActionTypes = ActionCatalog.getActionTypes().join(' | ');
+    const expectedActionTypes = this.actionCatalog.getActionTypes().join(' | ');
 
     let prompt = `You are an AI assistant.
 Your task is to respond to the user based on the following context:

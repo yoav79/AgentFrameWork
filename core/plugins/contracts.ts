@@ -18,6 +18,9 @@ export interface ToolPluginModule {
     version: string;
     kind: 'tool';
     actionType: string;
+    description?: string;
+    isTerminal?: boolean;
+    minConfidence?: number;
   };
   create: (ctx: PluginContext) => Tool;
 }

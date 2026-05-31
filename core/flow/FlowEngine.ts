@@ -52,7 +52,8 @@ export class FlowEngine {
     private readonly actionExecutor: ActionExecutor,
     private readonly memoryReader?: MemoryReader,
     private readonly flowConfig?: FlowConfig,
-    private readonly workingMemoryStore?: WorkingMemoryStore
+    private readonly workingMemoryStore?: WorkingMemoryStore,
+    private readonly actionCatalog?: ActionCatalog
   ) {}
 
   public async run(input: FlowRunInput): Promise<FlowRunResult> {
@@ -152,7 +153,7 @@ export class FlowEngine {
           }
 
           // Check terminal behavior and limits
-          const isTerminal = ActionCatalog.isTerminal(actionType);
+          const isTerminal = this.actionCatalog ? this.actionCatalog.isTerminal(actionType) : ActionCatalog.isTerminal(actionType);
           if (!isTerminal) {
             const maxToolCalls = this.flowConfig?.maxToolCalls ?? 1;
             if (toolCallCount >= maxToolCalls) {
@@ -339,7 +340,7 @@ export class FlowEngine {
       // If we exit the loop without hitting shouldStop, it means stepCount reached maxSteps.
       // If the last proposed action was NOT terminal, we must return success: false to signal failure.
       const lastActionType = lastDecision?.proposedAction?.type;
-      const isLastTerminal = lastActionType ? ActionCatalog.isTerminal(lastActionType) : false;
+      const isLastTerminal = lastActionType ? (this.actionCatalog ? this.actionCatalog.isTerminal(lastActionType) : ActionCatalog.isTerminal(lastActionType)) : false;
 
       if (!isLastTerminal) {
         return {

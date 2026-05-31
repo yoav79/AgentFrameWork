@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ToolRegistry } from '../tools/ToolRegistry';
 import { PluginContext, ToolPluginModule } from './contracts';
+import { ActionCatalog } from '../actions/ActionCatalog';
 
 export interface WorkspacePluginsConfig {
   plugins?: Record<string, {
@@ -15,7 +16,8 @@ export class PluginLoader {
     pluginsDir: string,
     config: WorkspacePluginsConfig,
     baseContext: Omit<PluginContext, 'config'>,
-    registry: ToolRegistry
+    registry: ToolRegistry,
+    actionCatalog?: ActionCatalog
   ): void {
     if (!fs.existsSync(pluginsDir)) {
       baseContext.logger.warn(`Plugins directory does not exist: ${pluginsDir}`);
@@ -70,6 +72,16 @@ export class PluginLoader {
 
         const tool = pluginModule.create(pluginContext);
         registry.register(tool);
+
+        if (actionCatalog) {
+          actionCatalog.register({
+            type: manifest.actionType,
+            description: manifest.description || tool.description || `Plugin tool ${manifest.name}`,
+            isTerminal: manifest.isTerminal !== undefined ? manifest.isTerminal : false,
+            minConfidence: manifest.minConfidence !== undefined ? manifest.minConfidence : 0.85
+          });
+        }
+
         baseContext.logger.info(`Successfully loaded and registered plugin: ${manifest.name} [${manifest.actionType}]`);
       } catch (err) {
         baseContext.logger.error(`Failed to load plugin ${file}: ${(err as Error).message}`);

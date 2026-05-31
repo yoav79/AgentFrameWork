@@ -3,6 +3,13 @@ import { FrameworkError } from '../errors/FrameworkError';
 import { ActionCatalog } from '../actions/ActionCatalog';
 
 export class DecisionParser {
+  private readonly actionCatalog: ActionCatalog;
+
+  constructor(actionCatalog?: ActionCatalog) {
+    // If not provided, fall back to the default static catalog
+    this.actionCatalog = actionCatalog || new ActionCatalog(ActionCatalog.getActions());
+  }
+
   public parse(raw: string): Decision {
     try {
       let cleanedRaw = raw.trim();
@@ -23,8 +30,8 @@ export class DecisionParser {
         throw new FrameworkError('VALIDATION_ERROR', 'Decision confidence must be a number between 0 and 1');
       }
 
-      if (!parsed.proposedAction || !parsed.proposedAction.type || !ActionCatalog.isValidAction(parsed.proposedAction.type)) {
-        const typesStr = ActionCatalog.getActionTypes().map(t => `"${t}"`);
+      if (!parsed.proposedAction || !parsed.proposedAction.type || !this.actionCatalog.isValidAction(parsed.proposedAction.type)) {
+        const typesStr = this.actionCatalog.getActionTypes().map(t => `"${t}"`);
         let typesJoined = typesStr.join(', ');
         if (typesStr.length > 1) {
           const last = typesStr.pop();

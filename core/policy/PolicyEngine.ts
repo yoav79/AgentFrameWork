@@ -3,6 +3,12 @@ import { PolicyDecision } from './PolicyDecision';
 import { ActionCatalog } from '../actions/ActionCatalog';
 
 export class PolicyEngine {
+  private readonly actionCatalog: ActionCatalog;
+
+  constructor(actionCatalog?: ActionCatalog) {
+    this.actionCatalog = actionCatalog || new ActionCatalog(ActionCatalog.getActions());
+  }
+
   public evaluate(decision: Decision): PolicyDecision {
     if (!decision.proposedAction) {
       return {
@@ -13,7 +19,7 @@ export class PolicyEngine {
     }
 
     const type = decision.proposedAction.type;
-    const actionDef = ActionCatalog.getAction(type);
+    const actionDef = this.actionCatalog.getAction(type);
 
     if (!actionDef) {
       return {
@@ -46,26 +52,10 @@ export class PolicyEngine {
       };
     }
 
-    if (type === 'send_message') {
-      return {
-        allowed: true,
-        reason: 'Action "send_message" is allowed with sufficient confidence.',
-        severity: 'info'
-      };
-    }
-
-    if (type === 'read_file') {
-      return {
-        allowed: true,
-        reason: 'Action "read_file" is allowed with high confidence.',
-        severity: 'info'
-      };
-    }
-
     return {
-      allowed: false,
-      reason: `Action type "${type}" is unknown or not permitted.`,
-      severity: 'critical'
+      allowed: true,
+      reason: `Action "${type}" is allowed with sufficient confidence.`,
+      severity: 'info'
     };
   }
 }

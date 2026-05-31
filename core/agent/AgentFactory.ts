@@ -22,14 +22,20 @@ export interface AgentFactoryOptions extends EventLogFactoryOptions {
   debug?: boolean;
 }
 
+import { ActionCatalog } from '../actions/ActionCatalog';
+
 export class AgentFactory {
   public static create(llmAdapter: LLMAdapter, options?: AgentFactoryOptions): AgentKernel {
     const eventLog = EventLogFactory.create(options);
     const stateResolver = new StateResolver();
     const contextBuilder = new ContextBuilder();
-    const promptBuilder = new PromptBuilder();
-    const decisionParser = new DecisionParser();
-    const policyEngine = new PolicyEngine();
+    
+    // Create the session-specific ActionCatalog instance
+    const actionCatalog = new ActionCatalog();
+    
+    const promptBuilder = new PromptBuilder(actionCatalog);
+    const decisionParser = new DecisionParser(actionCatalog);
+    const policyEngine = new PolicyEngine(actionCatalog);
     const memoryReader = new MemoryReader(eventLog);
     
     const skillRegistry = new SkillRegistry();
@@ -80,7 +86,7 @@ export class AgentFactory {
     };
 
     const pluginsDir = path.join(process.cwd(), 'dist/plugins/tools');
-    PluginLoader.loadPlugins(pluginsDir, pluginsConfig, baseContext, toolRegistry);
+    PluginLoader.loadPlugins(pluginsDir, pluginsConfig, baseContext, toolRegistry, actionCatalog);
     
     const actionExecutor = new ActionExecutor(skillRegistry, toolRegistry);
 
@@ -94,7 +100,8 @@ export class AgentFactory {
       policyEngine,
       actionExecutor,
       memoryReader,
-      options?.flowConfig
+      options?.flowConfig,
+      actionCatalog
     );
   }
 }

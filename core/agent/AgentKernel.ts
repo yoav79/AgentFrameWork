@@ -17,6 +17,8 @@ import { FlowConfig, DEFAULT_FLOW_CONFIG } from '../flow/FlowConfig';
 import { FlowEngine } from '../flow/FlowEngine';
 import { WorkingMemoryStore } from '../memory/WorkingMemoryStore';
 
+import { ActionCatalog } from '../actions/ActionCatalog';
+
 export interface AgentRunInput {
   input: string;
   projectId?: string;
@@ -52,7 +54,8 @@ export class AgentKernel {
     private readonly policyEngine: PolicyEngine,
     private readonly actionExecutor: ActionExecutor,
     private readonly memoryReader?: MemoryReader,
-    private readonly flowConfig: FlowConfig = DEFAULT_FLOW_CONFIG
+    private readonly flowConfig: FlowConfig = DEFAULT_FLOW_CONFIG,
+    private readonly actionCatalog?: ActionCatalog
   ) {
     this.workingMemoryStore = new WorkingMemoryStore();
     this.flowEngine = new FlowEngine(
@@ -66,7 +69,8 @@ export class AgentKernel {
       actionExecutor,
       memoryReader,
       flowConfig,
-      this.workingMemoryStore
+      this.workingMemoryStore,
+      actionCatalog
     );
   }
 
