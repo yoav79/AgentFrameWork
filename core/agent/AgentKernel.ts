@@ -68,121 +68,157 @@ export class AgentKernel {
         payload
       });
 
-      const events = this.eventLog.getAll();
-      const state = this.stateResolver.resolve(events);
+      const maxSteps = 2;
+      let stepCount = 0;
+      let ephemeralStepContext: { actionType: string; message?: string; data?: unknown } | undefined;
+      let lastResult: SkillResult | undefined;
+      let lastDecision: Decision | undefined;
+      let lastState: State | undefined;
 
-      let history;
-      if (this.memoryReader) {
-        try {
-          history = this.memoryReader.read();
-        } catch (e) {
-          // Tolerancia a fallos: degradación sin memoria
-          console.warn('MemoryReader failed, proceeding without history', e);
+      while (stepCount < maxSteps) {
+        stepCount++;
+        const events = this.eventLog.getAll();
+        lastState = this.stateResolver.resolve(events);
+
+        let history;
+        if (this.memoryReader) {
+          try {
+            history = this.memoryReader.read();
+          } catch (e) {
+            console.warn('MemoryReader failed, proceeding without history', e);
+          }
         }
-      }
 
-      const context = this.contextBuilder.build(state, history);
-      const prompt = this.promptBuilder.build(context);
+        const context = this.contextBuilder.build(lastState, history, ephemeralStepContext);
+        const prompt = this.promptBuilder.build(context);
 
-      const llmResult = await this.llmAdapter.generate({
-        messages: [{ role: 'system', content: prompt }]
-      });
+        const llmResult = await this.llmAdapter.generate({
+          messages: [{ role: 'system', content: prompt }]
+        });
 
-      const decision = this.decisionParser.parse(llmResult.content);
+        lastDecision = this.decisionParser.parse(llmResult.content);
 
-      const agentStep: AgentStep = {
-        id: `step-${Date.now()}`,
-        actionType: decision.proposedAction?.type || 'unknown',
-        decision,
-        startedAt: new Date()
-      };
-      trace.addStep(agentStep);
-      
-      const policyDecision = this.policyEngine.evaluate(decision);
-      if (!policyDecision.allowed) {
-        agentStep.endedAt = new Date();
-        agentStep.success = false;
-        agentStep.error = policyDecision.reason;
+        const actionType = lastDecision.proposedAction?.type || 'unknown';
+        const agentStep: AgentStep = {
+          id: `step-${Date.now()}`,
+          actionType,
+          decision: lastDecision,
+          startedAt: new Date()
+        };
+        trace.addStep(agentStep);
         
+        const policyDecision = this.policyEngine.evaluate(lastDecision);
+        if (!policyDecision.allowed) {
+          agentStep.endedAt = new Date();
+          agentStep.success = false;
+          agentStep.error = policyDecision.reason;
+          
+          trace.addResult({
+            step: agentStep,
+            success: false,
+            error: policyDecision.reason
+          });
+
+          this.eventLog.append({
+            id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+            type: EventType.PolicyRejected,
+            source: EventSource.SYSTEM,
+            timestamp: new Date(),
+            payload: {
+              reason: policyDecision.reason || 'Action rejected by policy engine.',
+              severity: policyDecision.severity,
+              actionType,
+              confidence: lastDecision.confidence
+            }
+          });
+
+          return {
+            success: false,
+            decision: lastDecision,
+            state: lastState,
+            eventId,
+            policyReason: policyDecision.reason || 'Action rejected by policy engine.',
+            trace: { steps: trace.getSteps(), results: trace.getResults(), success: trace.isSuccessful() }
+          };
+        }
+
+        const actionResult = await this.actionExecutor.execute(lastDecision);
+        lastResult = actionResult;
+        
+        agentStep.endedAt = new Date();
+        agentStep.success = actionResult.success;
+        if (!actionResult.success) {
+          agentStep.error = actionResult.error;
+        }
+        
+        const sanitizedData = ResultSanitizer.sanitizeData(actionResult.data);
+
         trace.addResult({
           step: agentStep,
-          success: false,
-          error: policyDecision.reason
+          success: actionResult.success,
+          message: actionResult.message,
+          error: actionResult.error,
+          data: sanitizedData
         });
 
-        this.eventLog.append({
-          id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-          type: EventType.PolicyRejected,
-          source: EventSource.SYSTEM,
-          timestamp: new Date(),
-          payload: {
-            reason: policyDecision.reason || 'Action rejected by policy engine.',
-            severity: policyDecision.severity,
-            actionType: decision.proposedAction?.type,
-            confidence: decision.confidence
-          }
-        });
+        if (actionResult.success) {
+          this.eventLog.append({
+            id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+            type: EventType.ActionExecuted,
+            source: EventSource.SYSTEM,
+            timestamp: new Date(),
+            payload: {
+              actionType,
+              success: true,
+              message: actionResult.message
+            }
+          });
+        } else {
+          this.eventLog.append({
+            id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+            type: EventType.ActionFailed,
+            source: EventSource.SYSTEM,
+            timestamp: new Date(),
+            payload: {
+              actionType,
+              error: actionResult.error || 'Action execution failed'
+            }
+          });
+          return {
+            success: false,
+            result: actionResult,
+            decision: lastDecision,
+            state: lastState,
+            eventId,
+            error: actionResult.error,
+            trace: { steps: trace.getSteps(), results: trace.getResults(), success: trace.isSuccessful() }
+          };
+        }
 
-        return {
-          success: false,
-          decision,
-          state,
-          eventId,
-          policyReason: policyDecision.reason || 'Action rejected by policy engine.',
-          trace: { steps: trace.getSteps(), results: trace.getResults(), success: trace.isSuccessful() }
+        if (actionType === 'send_message' || actionType === 'none') {
+          return {
+            success: true,
+            result: actionResult,
+            decision: lastDecision,
+            state: lastState,
+            eventId,
+            trace: { steps: trace.getSteps(), results: trace.getResults(), success: trace.isSuccessful() }
+          };
+        }
+
+        ephemeralStepContext = {
+          actionType,
+          message: actionResult.message,
+          data: actionResult.data
         };
       }
 
-      const actionResult = await this.actionExecutor.execute(decision);
-      
-      agentStep.endedAt = new Date();
-      agentStep.success = actionResult.success;
-      if (!actionResult.success) {
-        agentStep.error = actionResult.error;
-      }
-      
-      const sanitizedData = ResultSanitizer.sanitizeData(actionResult.data);
-
-      trace.addResult({
-        step: agentStep,
-        success: actionResult.success,
-        message: actionResult.message,
-        error: actionResult.error,
-        data: sanitizedData
-      });
-
-      if (actionResult.success) {
-        this.eventLog.append({
-          id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-          type: EventType.ActionExecuted,
-          source: EventSource.SYSTEM,
-          timestamp: new Date(),
-          payload: {
-            actionType: decision.proposedAction?.type || 'unknown',
-            success: true,
-            message: actionResult.message
-          }
-        });
-      } else {
-        this.eventLog.append({
-          id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-          type: EventType.ActionFailed,
-          source: EventSource.SYSTEM,
-          timestamp: new Date(),
-          payload: {
-            actionType: decision.proposedAction?.type || 'unknown',
-            error: actionResult.error || 'Action execution failed'
-          }
-        });
-      }
-
       return {
-        success: actionResult.success,
-        result: actionResult,
-        decision,
-        state,
+        success: lastResult ? lastResult.success : false,
+        result: lastResult,
+        decision: lastDecision,
+        state: lastState,
         eventId,
-        ...(actionResult.error ? { error: actionResult.error } : {}),
         trace: { steps: trace.getSteps(), results: trace.getResults(), success: trace.isSuccessful() }
       };
     } catch (error) {
@@ -194,4 +230,3 @@ export class AgentKernel {
     }
   }
 }
-

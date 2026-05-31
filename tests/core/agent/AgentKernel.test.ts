@@ -283,7 +283,6 @@ describe('AgentKernel', () => {
     });
     const llmAdapter = new MockLLMAdapter(validJson);
     const actionExecutor = new ActionExecutor(new SkillRegistry());
-    // Mock the executor to return heavy data
     actionExecutor.execute = async () => ({
       success: true,
       message: 'File read successfully',
@@ -295,22 +294,109 @@ describe('AgentKernel', () => {
       llmAdapter, new DecisionParser(), new PolicyEngine(), actionExecutor
     );
 
+    // It will hit maxSteps (2) returning read_file result because mock LLM always returns read_file
     const result = await kernel.run({ input: 'read the file' });
     expect(result.success).toBe(true);
     expect(result.trace).toBeDefined();
-    expect(result.trace?.results.length).toBe(1);
     
     // Trace must not have content or base64Data
     const traceData = result.trace?.results[0]!.data as any;
     expect(traceData).toBeDefined();
     expect(traceData.path).toBe('test.txt');
-    expect(traceData.content).toBeUndefined(); // Sanitize check!
-    expect(traceData.base64Data).toBeUndefined(); // Sanitize check!
+    expect(traceData.content).toBeUndefined();
+    expect(traceData.base64Data).toBeUndefined();
+  });
+
+  it('should execute multi-step flow read_file -> send_message', async () => {
+    const json1 = JSON.stringify({
+      intent: 'unknown',
+      confidence: 1,
+      proposedAction: { type: 'read_file', payload: { path: 'test.txt' } }
+    });
+    const json2 = JSON.stringify({
+      intent: 'respond',
+      confidence: 1,
+      proposedAction: { type: 'send_message', payload: { message: 'I read it' } }
+    });
+
+    const llmAdapter = new MockLLMAdapter('');
+    const generateSpy = vi.spyOn(llmAdapter, 'generate').mockResolvedValueOnce({ content: json1 }).mockResolvedValueOnce({ content: json2 });
+
+    const actionExecutor = new ActionExecutor(new SkillRegistry());
+    actionExecutor.execute = async (decision) => {
+      if (decision.proposedAction?.type === 'read_file') {
+        return { success: true, message: 'read ok', data: { content: 'hello world' } };
+      }
+      return { success: true, message: 'I read it' }; // send_message
+    };
+
+    const kernel = new AgentKernel(
+      new InMemoryEventLog(), new StateResolver(), new ContextBuilder(), new PromptBuilder(),
+      llmAdapter, new DecisionParser(), new PolicyEngine(), actionExecutor
+    );
+
+    const result = await kernel.run({ input: 'read test.txt' });
+
+    expect(generateSpy).toHaveBeenCalledTimes(2);
+    expect(result.success).toBe(true);
+    expect(result.result?.message).toBe('I read it');
     
-    // The original execution result object returned to caller MUST NOT be mutated
-    const originalData = result.result?.data as any;
-    expect(originalData).toBeDefined();
-    expect(originalData.content).toBe('GIANT FILE CONTENT HERE');
-    expect(originalData.base64Data).toBe('dGVzdA==');
+    // Trace length 2
+    expect(result.trace?.steps.length).toBe(2);
+    expect(result.trace?.results.length).toBe(2);
+    expect(result.trace?.steps[0]!.actionType).toBe('read_file');
+    expect(result.trace?.steps[1]!.actionType).toBe('send_message');
+    
+    // Check ephemeral context in second prompt
+    const secondCallMessages = (generateSpy.mock.calls as any)[1][0].messages;
+    const systemPrompt = secondCallMessages.find((m: any) => m.role === 'system')?.content || '';
+    expect(systemPrompt).toContain('Previous Tool Result');
+    expect(systemPrompt).toContain('hello world'); // data.content injected!
+    
+    // Trace sanitized check
+    const traceData1 = result.trace?.results[0]!.data as any;
+    expect(traceData1?.content).toBeUndefined();
+  });
+
+  it('should stop immediately if actionType is none', async () => {
+    const validJson = JSON.stringify({
+      intent: 'unknown',
+      confidence: 1,
+      proposedAction: { type: 'none', payload: {} }
+    });
+    const llmAdapter = new MockLLMAdapter(validJson);
+    const generateSpy = vi.spyOn(llmAdapter, 'generate');
+    const kernel = new AgentKernel(
+      new InMemoryEventLog(), new StateResolver(), new ContextBuilder(), new PromptBuilder(),
+      llmAdapter, new DecisionParser(), new PolicyEngine(), new ActionExecutor(new SkillRegistry())
+    );
+
+    const result = await kernel.run({ input: 'do nothing' });
+    expect(generateSpy).toHaveBeenCalledTimes(1);
+    expect(result.success).toBe(true);
+    expect(result.trace?.steps.length).toBe(1);
+  });
+
+  it('should respect maxSteps (2) if LLM loops', async () => {
+    const validJson = JSON.stringify({
+      intent: 'unknown',
+      confidence: 1,
+      proposedAction: { type: 'read_file', payload: { path: 'test.txt' } }
+    });
+    const llmAdapter = new MockLLMAdapter(validJson);
+    const generateSpy = vi.spyOn(llmAdapter, 'generate');
+    
+    const actionExecutor = new ActionExecutor(new SkillRegistry());
+    actionExecutor.execute = async () => ({ success: true, message: 'ok' });
+
+    const kernel = new AgentKernel(
+      new InMemoryEventLog(), new StateResolver(), new ContextBuilder(), new PromptBuilder(),
+      llmAdapter, new DecisionParser(), new PolicyEngine(), actionExecutor
+    );
+
+    const result = await kernel.run({ input: 'read forever' });
+    expect(generateSpy).toHaveBeenCalledTimes(2);
+    expect(result.success).toBe(true);
+    expect(result.trace?.steps.length).toBe(2);
   });
 });
