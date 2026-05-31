@@ -7,7 +7,7 @@ import { LLMAdapter } from '../llm/LLMAdapter';
 import { DecisionParser } from '../routing/DecisionParser';
 import { ActionExecutor } from '../flow/ActionExecutor';
 import { Decision } from '../schemas/Decision';
-import { SkillResult } from '../skills/SkillResult';
+import { AgentResult } from './AgentResult';
 import { State } from '../state/State';
 import { PolicyEngine } from '../policy/PolicyEngine';
 import { MemoryReader } from '../memory/MemoryReader';
@@ -27,7 +27,7 @@ export interface AgentRunInput {
 
 export interface AgentRunResult {
   success: boolean;
-  result?: SkillResult;
+  result?: AgentResult;
   decision?: Decision;
   state?: State;
   eventId?: string;

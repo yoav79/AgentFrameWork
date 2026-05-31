@@ -107,4 +107,452 @@ describe('AgentFactory', () => {
 
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
+
+  it('should accept an AgentProfile in options and pass it to PromptBuilder', async () => {
+    const profile = {
+      id: 'comedian',
+      name: 'JokeBot',
+      description: 'funny agent',
+      persona: {
+        systemInstructions: 'Tell a joke about coding.'
+      }
+    };
+    
+    const llmAdapter = new MockLLMAdapter('{}');
+    const kernel = AgentFactory.create(llmAdapter, { agentProfile: profile });
+    expect(kernel).toBeDefined();
+
+    // Access promptBuilder through kernel to verify it was instantiated with the profile
+    const promptBuilder = (kernel as any).promptBuilder;
+    expect(promptBuilder).toBeDefined();
+    
+    const context = { messageCount: 1 };
+    const prompt = promptBuilder.build(context);
+    expect(prompt).toContain('## Agent Identity');
+    expect(prompt).toContain('Name: JokeBot');
+    expect(prompt).toContain('funny agent');
+    expect(prompt).toContain('Tell a joke about coding.');
+    
+    // Framework rules preserved
+    expect(prompt).toContain('JSON Schema Expected');
+    expect(prompt).toContain('Available Actions:');
+    expect(prompt).toContain('Do NOT use \'none\' when the user is asking a question or expecting a response.');
+  });
+
+  it('should autodiscover profile.json in workspaceRoot if agentProfile is not explicitly provided', () => {
+    const os = require('os');
+    const path = require('path');
+    const fs = require('fs');
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-factory-autodiscover-'));
+    const profilePath = path.join(tempDir, 'profile.json');
+    fs.writeFileSync(profilePath, JSON.stringify({
+      id: 'auto-agent',
+      name: 'AutoAgent',
+      description: 'Discovered',
+      persona: { systemInstructions: 'Do auto stuff' }
+    }));
+
+    const llmAdapter = new MockLLMAdapter('{}');
+    const kernel = AgentFactory.create(llmAdapter, { workspaceRoot: tempDir });
+    
+    const promptBuilder = (kernel as any).promptBuilder;
+    const prompt = promptBuilder.build({ messageCount: 1 });
+    
+    expect(prompt).toContain('Name: AutoAgent');
+    expect(prompt).toContain('Do auto stuff');
+
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('should prioritize explicitly provided agentProfile over workspaceRoot/profile.json', () => {
+    const os = require('os');
+    const path = require('path');
+    const fs = require('fs');
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-factory-priority-'));
+    const profilePath = path.join(tempDir, 'profile.json');
+    fs.writeFileSync(profilePath, JSON.stringify({
+      id: 'auto-agent',
+      name: 'AutoAgent',
+      description: 'Discovered',
+      persona: { systemInstructions: 'Do auto stuff' }
+    }));
+
+    const explicitProfile = {
+      id: 'explicit',
+      name: 'ExplicitAgent',
+      description: 'Explicit',
+      persona: { systemInstructions: 'Do explicit stuff' }
+    };
+
+    const llmAdapter = new MockLLMAdapter('{}');
+    const kernel = AgentFactory.create(llmAdapter, { 
+      workspaceRoot: tempDir,
+      agentProfile: explicitProfile
+    });
+    
+    const promptBuilder = (kernel as any).promptBuilder;
+    const prompt = promptBuilder.build({ messageCount: 1 });
+    
+    expect(prompt).toContain('Name: ExplicitAgent');
+    expect(prompt).toContain('Do explicit stuff');
+    expect(prompt).not.toContain('Name: AutoAgent');
+
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('should fail with descriptive error if workspaceRoot/profile.json is invalid', () => {
+    const os = require('os');
+    const path = require('path');
+    const fs = require('fs');
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-factory-invalid-'));
+    const profilePath = path.join(tempDir, 'profile.json');
+    fs.writeFileSync(profilePath, '{ invalid json');
+
+    const llmAdapter = new MockLLMAdapter('{}');
+    
+    expect(() => {
+      AgentFactory.create(llmAdapter, { workspaceRoot: tempDir });
+    }).toThrow('Invalid JSON in');
+
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  describe('Plugin Filtering by AgentProfile', () => {
+    it('should maintain current behavior if enabledPlugins is undefined', () => {
+      const explicitProfile = {
+        id: 'explicit',
+        name: 'Explicit',
+        description: 'Explicit',
+        persona: { systemInstructions: 'Do explicit stuff' }
+      };
+      const llmAdapter = new MockLLMAdapter('{}');
+      const kernel = AgentFactory.create(llmAdapter, { agentProfile: explicitProfile });
+      const actionCatalog = (kernel as any).promptBuilder.actionCatalog;
+      
+      expect(actionCatalog.getActionTypes()).toContain('read_file');
+    });
+
+    it('should not load external plugins if enabledPlugins is empty array', () => {
+      const explicitProfile = {
+        id: 'explicit',
+        name: 'Explicit',
+        description: 'Explicit',
+        persona: { systemInstructions: 'Do explicit stuff' },
+        enabledPlugins: []
+      };
+      const llmAdapter = new MockLLMAdapter('{}');
+      const kernel = AgentFactory.create(llmAdapter, { agentProfile: explicitProfile });
+      const actionCatalog = (kernel as any).promptBuilder.actionCatalog;
+      
+      expect(actionCatalog.getActionTypes()).not.toContain('read_file');
+      expect(actionCatalog.getActionTypes()).toContain('send_message');
+      
+      const prompt = (kernel as any).promptBuilder.build({ messageCount: 1 });
+      expect(prompt).not.toContain('\n3. read_file\n');
+    });
+
+    it('should load only allowed plugins if enabledPlugins is provided', () => {
+      const os = require('os');
+      const path = require('path');
+      const fs = require('fs');
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-factory-plugins-'));
+      const configPath = path.join(tempDir, 'agent.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({
+        plugins: {
+          read_file: { enabled: true },
+          write_file: { enabled: true }
+        }
+      }));
+
+      const explicitProfile = {
+        id: 'explicit',
+        name: 'Explicit',
+        description: 'Explicit',
+        persona: { systemInstructions: 'Do explicit stuff' },
+        enabledPlugins: ['read_file']
+      };
+
+      const llmAdapter = new MockLLMAdapter('{}');
+      const kernel = AgentFactory.create(llmAdapter, { 
+        workspaceRoot: tempDir,
+        agentProfile: explicitProfile 
+      });
+      const actionCatalog = (kernel as any).promptBuilder.actionCatalog;
+      
+      expect(actionCatalog.getActionTypes()).toContain('read_file');
+      expect(actionCatalog.getActionTypes()).not.toContain('write_file');
+      
+      const prompt = (kernel as any).promptBuilder.build({ messageCount: 1 });
+      expect(prompt).toContain('\n3. read_file\n');
+      expect(prompt).not.toContain('\n4. write_file\n');
+
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    it('should throw fatal error if enabledPlugins references unknown plugin', () => {
+      const explicitProfile = {
+        id: 'explicit',
+        name: 'Explicit',
+        description: 'Explicit',
+        persona: { systemInstructions: 'Do explicit stuff' },
+        enabledPlugins: ['inventado']
+      };
+      const llmAdapter = new MockLLMAdapter('{}');
+      expect(() => {
+        AgentFactory.create(llmAdapter, { agentProfile: explicitProfile });
+      }).toThrow('[AgentFactory] AgentProfile references unknown plugin: inventado');
+    });
+
+    it('should throw fatal error if enabledPlugins references disabled plugin', () => {
+      const os = require('os');
+      const path = require('path');
+      const fs = require('fs');
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-factory-plugins-disabled-'));
+      const configPath = path.join(tempDir, 'agent.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({
+        plugins: {
+          read_file: { enabled: false }
+        }
+      }));
+
+      const explicitProfile = {
+        id: 'explicit',
+        name: 'Explicit',
+        description: 'Explicit',
+        persona: { systemInstructions: 'Do explicit stuff' },
+        enabledPlugins: ['read_file']
+      };
+
+      const llmAdapter = new MockLLMAdapter('{}');
+      
+      expect(() => {
+        AgentFactory.create(llmAdapter, { 
+          workspaceRoot: tempDir,
+          agentProfile: explicitProfile 
+        });
+      }).toThrow('[AgentFactory] AgentProfile references disabled plugin: read_file');
+
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+  });
+
+  describe('Skill Filtering by AgentProfile (allowedSkills)', () => {
+    it('maintains current behavior if allowedSkills is undefined', () => {
+      const explicitProfile = {
+        id: 'explicit',
+        name: 'Explicit',
+        description: 'Explicit',
+        persona: { systemInstructions: 'Do explicit stuff' }
+      };
+      const llmAdapter = new MockLLMAdapter('{}');
+      const kernel = AgentFactory.create(llmAdapter, { agentProfile: explicitProfile });
+      const actionCatalog = (kernel as any).promptBuilder.actionCatalog;
+      
+      expect(actionCatalog.getActionTypes()).toContain('send_message');
+      expect(actionCatalog.getActionTypes()).toContain('none');
+    });
+
+    it('shows send_message in Available Actions and does not show none if allowedSkills=["send_message"]', () => {
+      const explicitProfile = {
+        id: 'explicit',
+        name: 'Explicit',
+        description: 'Explicit',
+        persona: { systemInstructions: 'Do explicit stuff' },
+        allowedSkills: ['send_message']
+      };
+      const llmAdapter = new MockLLMAdapter('{}');
+      const kernel = AgentFactory.create(llmAdapter, { agentProfile: explicitProfile });
+      
+      const prompt = (kernel as any).promptBuilder.build({ messageCount: 1 });
+      expect(prompt).toContain('1. send_message');
+      expect(prompt).not.toContain('2. none');
+    });
+
+    it('shows none and does not show send_message if allowedSkills=["none"]', () => {
+      const explicitProfile = {
+        id: 'explicit',
+        name: 'Explicit',
+        description: 'Explicit',
+        persona: { systemInstructions: 'Do explicit stuff' },
+        allowedSkills: ['none']
+      };
+      const llmAdapter = new MockLLMAdapter('{}');
+      const kernel = AgentFactory.create(llmAdapter, { agentProfile: explicitProfile });
+      
+      const prompt = (kernel as any).promptBuilder.build({ messageCount: 1 });
+      expect(prompt).not.toContain('\n1. send_message\n');
+      expect(prompt).toContain('none');
+      
+      const registry = (kernel as any).actionExecutor.registry;
+      expect(registry.getSkillForAction('send_message')).toBeUndefined();
+    });
+
+    it('fails with clear error if allowedSkills is empty array', () => {
+      const explicitProfile = {
+        id: 'explicit',
+        name: 'Explicit',
+        description: 'Explicit',
+        persona: { systemInstructions: 'Do explicit stuff' },
+        allowedSkills: []
+      };
+      const llmAdapter = new MockLLMAdapter('{}');
+      
+      expect(() => {
+        AgentFactory.create(llmAdapter, { agentProfile: explicitProfile });
+      }).toThrow('[AgentFactory] AgentProfile.allowedSkills cannot be empty in interactive agents.');
+    });
+
+    it('fails with clear error if allowedSkills has invalid skill', () => {
+      const explicitProfile = {
+        id: 'explicit',
+        name: 'Explicit',
+        description: 'Explicit',
+        persona: { systemInstructions: 'Do explicit stuff' },
+        allowedSkills: ['invalid_skill']
+      };
+      const llmAdapter = new MockLLMAdapter('{}');
+      
+      expect(() => {
+        AgentFactory.create(llmAdapter, { agentProfile: explicitProfile });
+      }).toThrow('[AgentFactory] AgentProfile references unknown base skill: invalid_skill');
+    });
+  });
+
+  describe('Tool Filtering by AgentProfile (allowedTools)', () => {
+    it('maintains current behavior if allowedTools is undefined', () => {
+      const os = require('os');
+      const path = require('path');
+      const fs = require('fs');
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-factory-tools-'));
+      const configPath = path.join(tempDir, 'agent.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({
+        plugins: { read_file: { enabled: true } }
+      }));
+
+      const explicitProfile = {
+        id: 'explicit',
+        name: 'Explicit',
+        description: 'Explicit',
+        persona: { systemInstructions: 'Do explicit stuff' },
+        enabledPlugins: ['read_file']
+      };
+
+      const llmAdapter = new MockLLMAdapter('{}');
+      const kernel = AgentFactory.create(llmAdapter, { 
+        workspaceRoot: tempDir,
+        agentProfile: explicitProfile 
+      });
+      const actionCatalog = (kernel as any).promptBuilder.actionCatalog;
+      
+      expect(actionCatalog.getActionTypes()).toContain('read_file');
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    it('does not register external tools if allowedTools is []', () => {
+      const os = require('os');
+      const path = require('path');
+      const fs = require('fs');
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-factory-tools-empty-'));
+      const configPath = path.join(tempDir, 'agent.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({
+        plugins: { read_file: { enabled: true } }
+      }));
+
+      const explicitProfile = {
+        id: 'explicit',
+        name: 'Explicit',
+        description: 'Explicit',
+        persona: { systemInstructions: 'Do explicit stuff' },
+        enabledPlugins: ['read_file'],
+        allowedTools: []
+      };
+
+      const llmAdapter = new MockLLMAdapter('{}');
+      const kernel = AgentFactory.create(llmAdapter, { 
+        workspaceRoot: tempDir,
+        agentProfile: explicitProfile 
+      });
+      const actionCatalog = (kernel as any).promptBuilder.actionCatalog;
+      
+      expect(actionCatalog.getActionTypes()).not.toContain('read_file');
+      
+      const toolRegistry = (kernel as any).actionExecutor.toolRegistry;
+      expect(toolRegistry.getRegisteredTools().map((t: any) => t.name)).not.toContain('read_file');
+
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    it('registers only read_file and not write_file if allowedTools=["read_file"]', () => {
+      const os = require('os');
+      const path = require('path');
+      const fs = require('fs');
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-factory-tools-filter-'));
+      const configPath = path.join(tempDir, 'agent.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({
+        plugins: { 
+          read_file: { enabled: true },
+          write_file: { enabled: true }
+        }
+      }));
+
+      const explicitProfile = {
+        id: 'explicit',
+        name: 'Explicit',
+        description: 'Explicit',
+        persona: { systemInstructions: 'Do explicit stuff' },
+        enabledPlugins: ['read_file', 'write_file'],
+        allowedTools: ['read_file']
+      };
+
+      const llmAdapter = new MockLLMAdapter('{}');
+      const kernel = AgentFactory.create(llmAdapter, { 
+        workspaceRoot: tempDir,
+        agentProfile: explicitProfile 
+      });
+      
+      const actionCatalog = (kernel as any).promptBuilder.actionCatalog;
+      expect(actionCatalog.getActionTypes()).toContain('read_file');
+      expect(actionCatalog.getActionTypes()).not.toContain('write_file');
+
+      const toolRegistry = (kernel as any).actionExecutor.toolRegistry;
+      expect(toolRegistry.getRegisteredTools().map((t: any) => t.name)).toContain('read_file');
+      expect(toolRegistry.getRegisteredTools().map((t: any) => t.name)).not.toContain('write_file');
+
+      const prompt = (kernel as any).promptBuilder.build({ messageCount: 1 });
+      expect(prompt).not.toContain('\n4. write_file\n');
+
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    it('fails with clear error if allowedTools references unknown tool', () => {
+      const explicitProfile = {
+        id: 'explicit',
+        name: 'Explicit',
+        description: 'Explicit',
+        persona: { systemInstructions: 'Do explicit stuff' },
+        allowedTools: ['magia']
+      };
+      const llmAdapter = new MockLLMAdapter('{}');
+      
+      expect(() => {
+        AgentFactory.create(llmAdapter, { agentProfile: explicitProfile });
+      }).toThrow('[PluginLoader] AgentProfile.allowedTools references unknown or disabled tool: magia');
+    });
+
+    it('fails with clear error if allowedTools requests a tool but its plugin is disabled', () => {
+      const explicitProfile = {
+        id: 'explicit',
+        name: 'Explicit',
+        description: 'Explicit',
+        persona: { systemInstructions: 'Do explicit stuff' },
+        enabledPlugins: [], // none enabled
+        allowedTools: ['read_file']
+      };
+      const llmAdapter = new MockLLMAdapter('{}');
+      
+      expect(() => {
+        AgentFactory.create(llmAdapter, { agentProfile: explicitProfile });
+      }).toThrow('[PluginLoader] AgentProfile.allowedTools references unknown or disabled tool: read_file');
+    });
+  });
 });

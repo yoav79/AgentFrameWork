@@ -1,3 +1,3 @@
 import { ActionResult } from '../actions/ActionResult';
 
-export interface SkillResult extends ActionResult {}
+export interface AgentResult extends ActionResult {}

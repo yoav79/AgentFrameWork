@@ -1,7 +1,7 @@
 import { Decision } from '../schemas/Decision';
 import { SkillRegistry } from '../skills/SkillRegistry';
-import { SkillResult } from '../skills/SkillResult';
 import { ToolRegistry } from '../tools/ToolRegistry';
+import { ExecutionResult } from './ExecutionResult';
 
 export class ActionExecutor {
   constructor(
@@ -9,7 +9,7 @@ export class ActionExecutor {
     private readonly toolRegistry?: ToolRegistry
   ) {}
 
-  public async execute(decision: Decision): Promise<SkillResult> {
+  public async execute(decision: Decision): Promise<ExecutionResult> {
     const actionType = decision.proposedAction.type;
 
     if (actionType === 'none') {

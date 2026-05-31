@@ -179,4 +179,14 @@ describe('CommandHandler Integration', () => {
     // Simulate interaction by overriding private properties/methods for testing is hard
     // but we can test if the factory is called using stdin mocking, or simpler, we trust E2E integration test for the interactive REPL loop
   });
+  it('should not parse --agent value as positional message', async () => {
+    const handler = new CommandHandler(['--agent', 'my-agent', 'hello'], mockCreateAgent, mockDirectoryAdapter as ProjectDirectoryAdapter);
+    
+    // We can access private args via any cast
+    const parsed = (handler as any).parseArgs(['--agent', 'my-agent', 'hello']);
+    expect(parsed.message).toBe('hello');
+    
+    const parsed2 = (handler as any).parseArgs(['hello', '--agent', 'my-agent']);
+    expect(parsed2.message).toBe('hello');
+  });
 });

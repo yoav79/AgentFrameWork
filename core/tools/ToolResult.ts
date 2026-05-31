@@ -1,6 +1,3 @@
-export interface ToolResult {
-  success: boolean;
-  message?: string;
-  data?: Record<string, unknown>;
-  error?: string;
-}
+import { ActionResult } from '../actions/ActionResult';
+
+export interface ToolResult extends ActionResult {}

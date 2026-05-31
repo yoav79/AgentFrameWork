@@ -14,12 +14,17 @@ import { PolicyEngine } from '../policy/PolicyEngine';
 import { MemoryReader } from '../memory/MemoryReader';
 import { ToolRegistry } from '../tools/ToolRegistry';
 import { FlowConfig } from '../flow/FlowConfig';
-import { PluginLoader } from '../plugins/PluginLoader';
+import { PluginLoader, WorkspacePluginsConfig } from '../plugins/PluginLoader';
+
+import { AgentProfile } from './AgentProfile';
+import { AgentProfileLoader } from './AgentProfileLoader';
+
 
 export interface AgentFactoryOptions extends EventLogFactoryOptions {
   workspaceRoot?: string;
   flowConfig?: FlowConfig;
   debug?: boolean;
+  agentProfile?: AgentProfile;
 }
 
 import { ActionCatalog } from '../actions/ActionCatalog';
@@ -30,23 +35,46 @@ export class AgentFactory {
     const stateResolver = new StateResolver();
     const contextBuilder = new ContextBuilder();
     
+    const root = options?.workspaceRoot || process.cwd();
+
+    let effectiveProfile = options?.agentProfile;
+    if (!effectiveProfile && options?.workspaceRoot) {
+      const profilePath = path.join(options.workspaceRoot, 'profile.json');
+      const loaded = AgentProfileLoader.loadFromFile(profilePath, options.workspaceRoot);
+      if (loaded) {
+        effectiveProfile = loaded;
+      }
+    }
+
+    if (effectiveProfile?.allowedSkills) {
+      if (effectiveProfile.allowedSkills.length === 0) {
+        throw new Error('[AgentFactory] AgentProfile.allowedSkills cannot be empty in interactive agents.');
+      }
+      for (const skill of effectiveProfile.allowedSkills) {
+        if (skill !== 'send_message' && skill !== 'none') {
+          throw new Error(`[AgentFactory] AgentProfile references unknown base skill: ${skill}`);
+        }
+      }
+    }
+
     // Create the session-specific ActionCatalog instance
-    const actionCatalog = new ActionCatalog();
-    
-    const promptBuilder = new PromptBuilder(actionCatalog);
+    const actionCatalog = new ActionCatalog(undefined, effectiveProfile?.allowedSkills);
+
+    const promptBuilder = new PromptBuilder(actionCatalog, effectiveProfile);
     const decisionParser = new DecisionParser(actionCatalog);
     const policyEngine = new PolicyEngine(actionCatalog);
     const memoryReader = new MemoryReader(eventLog);
     
     const skillRegistry = new SkillRegistry();
-    skillRegistry.register(new SendMessageSkill());
+    if (!effectiveProfile?.allowedSkills || effectiveProfile.allowedSkills.includes('send_message')) {
+      skillRegistry.register(new SendMessageSkill());
+    }
     
     const toolRegistry = new ToolRegistry();
-    const root = options?.workspaceRoot || process.cwd();
     
     // Load projects/<id>/agent.config.json or fallback to enabling read_file
     const configPath = path.join(root, 'agent.config.json');
-    let pluginsConfig = {
+    let pluginsConfig: WorkspacePluginsConfig = {
       plugins: {
         read_file: {
           enabled: true
@@ -61,6 +89,24 @@ export class AgentFactory {
       } catch (err) {
         console.error(`Error parsing agent.config.json in ${root}: ${(err as Error).message}`);
       }
+    }
+
+    if (effectiveProfile && effectiveProfile.enabledPlugins !== undefined) {
+      const globalPlugins = pluginsConfig.plugins || {};
+      const filteredPlugins: Record<string, { enabled: boolean; config?: Record<string, unknown> }> = {};
+      
+      for (const pluginName of effectiveProfile.enabledPlugins) {
+        const globalDef = globalPlugins[pluginName];
+        if (!globalDef) {
+          throw new Error(`[AgentFactory] AgentProfile references unknown plugin: ${pluginName}`);
+        }
+        if (globalDef.enabled !== true) {
+          throw new Error(`[AgentFactory] AgentProfile references disabled plugin: ${pluginName}`);
+        }
+        filteredPlugins[pluginName] = globalDef;
+      }
+      
+      pluginsConfig = { ...pluginsConfig, plugins: filteredPlugins };
     }
 
     const isDebug = options?.debug || false;
@@ -86,7 +132,7 @@ export class AgentFactory {
     };
 
     const pluginsDir = path.join(process.cwd(), 'dist/plugins/tools');
-    PluginLoader.loadPlugins(pluginsDir, pluginsConfig, baseContext, toolRegistry, actionCatalog);
+    PluginLoader.loadPlugins(pluginsDir, pluginsConfig, baseContext, toolRegistry, actionCatalog, effectiveProfile?.allowedTools);
     
     const actionExecutor = new ActionExecutor(skillRegistry, toolRegistry);
 

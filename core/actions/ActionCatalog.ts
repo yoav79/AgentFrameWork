@@ -14,7 +14,7 @@ export const BASE_ACTIONS: ActionDefinition[] = [
   },
   {
     type: 'none',
-    description: 'Use ONLY when there is genuinely no action to take:\n   - The user sent an empty or purely social message ("ok", "thanks").\n   - There is no question, task, or request to perform.\n   - Payload expected: {}\n\n   DO NOT use "none" when:\n   - The user asks a question about a file, URL, or data → use the appropriate tool or answer from Working Memory.\n   - The user asks any question you can answer → use send_message.\n   - The agent has just successfully executed a tool or completed a user request → use send_message to report the outcome to the user.',
+    description: 'Use ONLY when there is genuinely no action to take:\n   - The user sent an empty or purely social message ("ok", "thanks").\n   - There is no question, task, or request to perform.\n   - Payload expected: {}\n\n   DO NOT use "none" when:\n   - The user asks a question (conversational or general) → you MUST use send_message.\n   - The user expects a visible response → you MUST use send_message.\n   - The user asks a question about a file, URL, or data → use the appropriate tool or answer from Working Memory.\n   - The agent has just successfully executed a tool or completed a user request → use send_message to report the outcome to the user.',
     isTerminal: true,
     minConfidence: 0.0
   }
@@ -23,8 +23,10 @@ export const BASE_ACTIONS: ActionDefinition[] = [
 export class ActionCatalog {
   private actions: ActionDefinition[] = [];
 
-  constructor(customActions: ActionDefinition[] = []) {
-    this.actions = [...BASE_ACTIONS];
+  constructor(customActions: ActionDefinition[] = [], allowedSkills?: string[]) {
+    this.actions = allowedSkills
+      ? BASE_ACTIONS.filter(a => allowedSkills.includes(a.type))
+      : [...BASE_ACTIONS];
     for (const act of customActions) {
       this.register(act);
     }

@@ -116,7 +116,7 @@ export class CommandHandler {
       } else if (arg === '--debug') {
         result.debug = true;
       } else if (arg === '--agent') {
-        // Just flag, don't add to positional
+        i++; // skip value
       } else if (arg === '--persist') {
         // Just flag, don't add to positional
       } else if (arg === '--project') {

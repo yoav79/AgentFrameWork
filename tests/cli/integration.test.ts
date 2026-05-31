@@ -19,9 +19,34 @@ describe('CLI Smoke / Integration Tests', () => {
     expect(output).not.toContain('Failed to parse raw decision as JSON');
   });
 
-  it('should not require --agent and should ignore it if present', () => {
-    const output = execSync(`npx tsx ${cliPath} --agent "hola"`).toString();
-    expect(output).toContain('Mock LLM response');
+  it('should fail if --agent is used without value', () => {
+    try {
+      execSync(`npx tsx ${cliPath} --agent`);
+      expect(true).toBe(false);
+    } catch (error: any) {
+      expect(error.status).toBe(1);
+      expect(error.stderr?.toString() || error.stdout?.toString()).toContain('Agent id is required after --agent');
+    }
+  });
+
+  it('should fail with fatal error if --agent id does not exist', () => {
+    try {
+      execSync(`npx tsx ${cliPath} --agent non_existent_agent "hola"`);
+      expect(true).toBe(false);
+    } catch (error: any) {
+      expect(error.status).toBe(1);
+      expect(error.stderr?.toString() || error.stdout?.toString()).toContain('Agent profile not found: non_existent_agent');
+    }
+  });
+
+  it('should fail if --agent id is invalid (path traversal)', () => {
+    try {
+      execSync(`npx tsx ${cliPath} --agent ../evil "hola"`);
+      expect(true).toBe(false);
+    } catch (error: any) {
+      expect(error.status).toBe(1);
+      expect(error.stderr?.toString() || error.stdout?.toString()).toContain('Invalid agent id');
+    }
   });
 
   it('should not treat --persist as a positional message', () => {

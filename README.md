@@ -59,6 +59,9 @@ npx tsx apps/cli/cli.ts --persist
 
 Por defecto, el CLI usa un proveedor `mock` seguro que no consume recursos de red. Puedes cambiar dinámicamente a `openai` usando banderas.
 
+### Perfiles de Agente
+Puedes utilizar la bandera `--agent <id>` para instanciar el sistema con comportamientos preconfigurados y restricciones granulares. Consulta la [Documentación de Agent Profiles](docs/AGENT_PROFILES.md) para aprender a construir tus propios agentes.
+
 > **⚠️ Advertencia de Seguridad:** Evita escribir o pegar tus API Keys reales en comandos directos para prevenir que queden registradas en el historial de bash (`~/.bash_history`). Usa variables de entorno cuando sea posible o asegúrate de limpiar tu historial.
 
 **Usando Mock (Por defecto):**

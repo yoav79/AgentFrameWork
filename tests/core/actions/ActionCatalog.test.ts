@@ -15,6 +15,11 @@ describe('ActionCatalog integration', () => {
     expect(ActionCatalog.isValidAction('invalid_action')).toBe(false);
     expect(ActionCatalog.isTerminal('send_message')).toBe(true);
     expect(ActionCatalog.isTerminal('read_file')).toBe(false);
+
+    const noneAction = ActionCatalog.getAction('none');
+    expect(noneAction).toBeDefined();
+    expect(noneAction?.description).toContain('DO NOT use "none" when');
+    expect(noneAction?.description).toContain('you MUST use send_message');
   });
 
   it('feeds dynamic available actions and schema expected to PromptBuilder', () => {
@@ -71,5 +76,35 @@ describe('ActionCatalog integration', () => {
       proposedAction: { type: 'read_file', payload: { path: 'test.ts' } }
     });
     expect(rejectedDecision.allowed).toBe(false);
+  });
+
+  describe('allowedSkills filtering', () => {
+    it('contains all base actions if allowedSkills is undefined', () => {
+      const catalog = new ActionCatalog();
+      const types = catalog.getActionTypes();
+      expect(types).toContain('send_message');
+      expect(types).toContain('none');
+    });
+
+    it('filters out base actions not in allowedSkills', () => {
+      const catalog = new ActionCatalog([], ['send_message']);
+      const types = catalog.getActionTypes();
+      expect(types).toContain('send_message');
+      expect(types).not.toContain('none');
+    });
+
+    it('can keep none and remove send_message', () => {
+      const catalog = new ActionCatalog([], ['none']);
+      const types = catalog.getActionTypes();
+      expect(types).toContain('none');
+      expect(types).not.toContain('send_message');
+    });
+
+    it('can keep both if explicitly provided', () => {
+      const catalog = new ActionCatalog([], ['send_message', 'none']);
+      const types = catalog.getActionTypes();
+      expect(types).toContain('send_message');
+      expect(types).toContain('none');
+    });
   });
 });

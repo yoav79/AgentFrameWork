@@ -17,7 +17,8 @@ export class PluginLoader {
     config: WorkspacePluginsConfig,
     baseContext: Omit<PluginContext, 'config'>,
     registry: ToolRegistry,
-    actionCatalog?: ActionCatalog
+    actionCatalog?: ActionCatalog,
+    allowedTools?: string[]
   ): void {
     if (!fs.existsSync(pluginsDir)) {
       baseContext.logger.warn(`Plugins directory does not exist: ${pluginsDir}`);
@@ -26,6 +27,7 @@ export class PluginLoader {
 
     const files = fs.readdirSync(pluginsDir);
     const allowlist = config.plugins || {};
+    const loadedActionTypes = new Set<string>();
 
     for (const file of files) {
       // Load only compiled .js files in production/runtime to prevent Dev/Prod incompatibility
@@ -62,6 +64,11 @@ export class PluginLoader {
           continue;
         }
 
+        if (allowedTools && !allowedTools.includes(manifest.actionType)) {
+          baseContext.logger.info(`Tool ${manifest.actionType} is not in the allowedTools list.`);
+          continue;
+        }
+
         // Merge generic context with plugin-specific config from manifest/allowlist
         const pluginContext: PluginContext = {
           ...baseContext,
@@ -82,9 +89,19 @@ export class PluginLoader {
           });
         }
 
+        loadedActionTypes.add(manifest.actionType);
+
         baseContext.logger.info(`Successfully loaded and registered plugin: ${manifest.name} [${manifest.actionType}]`);
       } catch (err) {
         baseContext.logger.error(`Failed to load plugin ${file}: ${(err as Error).message}`);
+      }
+    }
+
+    if (allowedTools) {
+      for (const tool of allowedTools) {
+        if (!loadedActionTypes.has(tool)) {
+          throw new Error(`[PluginLoader] AgentProfile.allowedTools references unknown or disabled tool: ${tool}`);
+        }
       }
     }
   }

@@ -1,9 +1,12 @@
 #!/usr/bin/env node
+import * as path from 'path';
 import { CommandHandler } from './CommandHandler';
 import { Renderer } from './Renderer';
 import { ProjectDirectoryAdapter } from './ProjectDirectoryAdapter';
 import { AdapterFactory } from './AdapterFactory';
 import { AgentFactory } from '../../core/agent/AgentFactory';
+import { AgentProfile } from '../../core/agent/AgentProfile';
+import { AgentProfileLoader } from '../../core/agent/AgentProfileLoader';
 import { WorkspaceNameValidator } from '../../core/workspace/WorkspaceNameValidator';
 
 async function bootstrap() {
@@ -18,18 +21,23 @@ async function bootstrap() {
     process.exit(1);
   }
   
-  const isAgentMode = args.includes('--agent');
-  if (isAgentMode) {
-    console.warn('\x1b[33mWarning: The --agent flag is deprecated and has no effect. Agent mode is now the default.\x1b[0m');
-  }
   const isPersistMode = args.includes('--persist');
   
   let projectId;
+  let agentId;
   let maxSteps = 2;
   let maxToolCalls = 1;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--project') {
       projectId = args[i + 1];
+    }
+    if (args[i] === '--agent') {
+      agentId = args[i + 1];
+      if (!agentId || agentId.startsWith('-')) {
+        const renderer = new Renderer();
+        renderer.renderError(new Error('Agent id is required after --agent'), args.includes('--debug'));
+        process.exit(1);
+      }
     }
     if (args[i] === '--max-steps') {
       const val = args[i + 1];
@@ -55,6 +63,22 @@ async function bootstrap() {
     }
   }
 
+  let agentProfile: AgentProfile | undefined;
+  if (agentId) {
+    try {
+      const repoRoot = path.resolve(__dirname, '../../');
+      const loaded = AgentProfileLoader.loadById(agentId, repoRoot);
+      if (!loaded) {
+        throw new Error(`Agent profile not found: ${agentId}`);
+      }
+      agentProfile = loaded;
+    } catch (error) {
+      const renderer = new Renderer();
+      renderer.renderError(error as Error, args.includes('--debug'));
+      process.exit(1);
+    }
+  }
+
   const directoryAdapter = new ProjectDirectoryAdapter();
 
   const createAgent = (id?: string, root?: string, sessionId?: string) => AgentFactory.create(llmAdapter, {
@@ -63,6 +87,7 @@ async function bootstrap() {
     sessionId: sessionId,
     workspaceRoot: root ?? (id ? directoryAdapter.getProjectPath(id) : process.cwd()),
     debug: args.includes('--debug'),
+    agentProfile: agentProfile,
     flowConfig: {
       maxSteps,
       maxToolCalls,

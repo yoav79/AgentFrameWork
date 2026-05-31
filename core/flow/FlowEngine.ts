@@ -9,7 +9,7 @@ import { LLMAdapter } from '../llm/LLMAdapter';
 import { DecisionParser } from '../routing/DecisionParser';
 import { ActionExecutor } from '../flow/ActionExecutor';
 import { Decision } from '../schemas/Decision';
-import { SkillResult } from '../skills/SkillResult';
+import { ExecutionResult } from './ExecutionResult';
 import { State } from '../state/State';
 import { PolicyEngine } from '../policy/PolicyEngine';
 import { MemoryReader } from '../memory/MemoryReader';
@@ -30,7 +30,7 @@ export interface FlowRunInput {
 
 export interface FlowRunResult {
   success: boolean;
-  result?: SkillResult;
+  result?: ExecutionResult;
   decision?: Decision;
   state?: State;
   error?: string;
@@ -65,7 +65,7 @@ export class FlowEngine {
       let stepCount = 0;
       let toolCallCount = 0;
       let ephemeralStepContext: { actionType: string; message?: string; data?: unknown } | undefined;
-      let lastResult: SkillResult | undefined;
+      let lastResult: ExecutionResult | undefined;
       let lastDecision: Decision | undefined;
       let lastState: State | undefined;
       let accumulatedData: any = undefined;
@@ -184,7 +184,7 @@ export class FlowEngine {
           }
 
           // Execute action with retries
-          let actionResult: SkillResult;
+          let actionResult: ExecutionResult;
           let retryCount = 0;
           const allowRetries = this.flowConfig?.allowRetries ?? false;
           const maxRetries = this.flowConfig?.maxRetries ?? 0;
