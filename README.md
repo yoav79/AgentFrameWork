@@ -130,9 +130,11 @@ La arquitectura desacopla estrictamente la interfaz de la lógica agnóstica:
    - Resuelve las dependencias (ej: instanciar `OpenAIAdapter`).
    - Mantiene la sesión interactiva.
 2. **`core/` (Núcleo de Dominio):**
-   - **AgentKernel:** El motor central (`AgentKernel.ts`) que orquesta el flujo de ejecución y decisiones agénticas.
-   - **ContextBuilder & PromptBuilder:** Construyen el entorno conversacional histórico.
-   - **LLMAdapters:** Interfaz común para comunicarse con modelos AI.
+   - **AgentKernel:** La fachada principal que inicializa los eventos, resuelve dependencias y delega la ejecución al `FlowEngine`.
+   - **FlowEngine:** El motor de ejecución de flujo multi-paso configurable (`FlowEngine.ts`). Orquesta de manera secuencial y determinista el ciclo de vida: Contexto -> Prompt -> LLM -> Policy Engine -> Tool Execution -> Ephemeral Context.
+   - **ActionCatalog:** Catálogo centralizado y tipado que define las acciones disponibles (`send_message`, `none`, `read_file`).
+   - **ContextBuilder & PromptBuilder:** Construyen el entorno conversacional histórico y las instrucciones del sistema, separando los roles de mensaje `system` y `user`.
+   - **LLMAdapters:** Interfaz común para comunicarse con modelos AI (soporta `mock` y `openai`).
 
 ## Capacidades
 
@@ -140,11 +142,14 @@ La arquitectura desacopla estrictamente la interfaz de la lógica agnóstica:
 - Enrutamiento y ciclo de vida de CLI (One-off / Interactivo).
 - Inyección dinámica de adaptadores de LLM (`mock`, `openai`).
 - Parseo profundo de parámetros y aislamiento posicional de texto.
-- Manejo limpio de errores controlados (`FrameworkError` con validación estricta de códigos como `VALIDATION_ERROR`, `CONFIG_ERROR`).
-- Motor de **Agente** (`AgentKernel`) nativo con integración a `MemoryReader` y `EventLogFactory` para contexto histórico.
+- Manejo limpio de errores controlados (`FrameworkError`).
+- Motor de **Agente** con ejecución de flujo multi-paso real determinista (`FlowEngine`).
+- Catálogo unificado de herramientas (`ActionCatalog`) y evaluación dinámica en el `PolicyEngine`.
+- Soporte para herramientas reales: lectura de archivos locales (`ReadFileTool`) con validación de seguridad de rutas.
+- Aislamiento estricto de historial de memoria de conversación utilizando identificadores de sesión (`sessionId`), proyecto (`projectId`) y ejecución (`runId`/`stepId`).
+- Mensajería del LLM limpia y estructurada utilizando separación de roles (`system` para instrucciones y `user` para el mensaje actual).
 - Suite extensa de Unit Tests (Vitest) para todos los componentes, garantizando un build reproducible (`npm test` y `npm run typecheck`).
 - File System de Workspaces con validación de seguridad contra Path Traversal integrada (`ProjectDirectoryAdapter`).
 
 ### 🚧 Simuladas o Pendientes
-- **Manejo de Sesiones:** El comando `/session` es una simulación actualmente.
-- **Módulos Agénticos Avanzados:** La estructura base para `flow`, `routing`, `skills`, `tools` existe en `core/`, pero aguarda implementaciones concretas de herramientas de lectura de disco o auto-corrección (roadmap futuro).
+- **Manejo de Sesiones Avanzado:** El comando interactivo `/session` muestra información descriptiva de la sesión, pero el ciclo de vida de cierre automático requiere un gestor de sesiones de red en el roadmap futuro.
