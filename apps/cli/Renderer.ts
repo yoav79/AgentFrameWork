@@ -59,7 +59,10 @@ Examples:
     // Handle AgentRunResult
     if (response && typeof response === 'object' && response.success !== undefined) {
       if (!response.success) {
-        this.renderError(new Error(response.error || response.policyReason || 'Agent execution failed'), false);
+        this.renderError(new Error(response.error || response.policyReason || 'Agent execution failed'), true);
+        if (response.trace) {
+          this.renderDebug('Execution Trace', response.trace);
+        }
         return;
       }
       if (response.result && response.result.message) {

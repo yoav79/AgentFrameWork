@@ -20,7 +20,7 @@ Action: ${context.ephemeralStepContext.actionType}`;
       if (context.ephemeralStepContext.data !== undefined) {
         ephemeralSection += `\nData:\n${JSON.stringify(context.ephemeralStepContext.data, null, 2)}`;
       }
-      ephemeralSection += '\n\nCRITICAL RULE: You have just received a tool result. You MUST now use the "send_message" action to communicate this result to the user. DO NOT use "none".\n\n';
+      ephemeralSection += '\n\nCRITICAL RULE: The previous action was a tool execution. If the tool succeeded and the user\'s request (e.g. creating/writing a file, searching, or reading) has been performed, you MUST use the "send_message" action to report the success and finalize the response. DO NOT repeat the tool execution if it has already succeeded. DO NOT use "none".\n\n';
     }
 
     const availableActionsList = this.actionCatalog.getActions()
@@ -57,7 +57,11 @@ Context:
     prompt += `
 You MUST respond strictly with a valid JSON object. Do not include markdown formatting or additional text.
 You HAVE the capability to execute the actions listed below. Do NOT claim that you lack the ability to read files or perform actions.
-Do NOT invent action types. If no action applies, use 'none' or 'send_message'.
+Do NOT invent action types. If the user's request has been completed or requires a response, you MUST use 'send_message' to reply to the user. Use 'none' ONLY when the user message is purely social (e.g., 'greet', 'ok', 'thanks') and no task or response is needed.
+
+## Execution & Termination Rule (MANDATORY)
+1. You are executing in a multi-step loop. If you have already successfully executed the tool(s) required to satisfy the user's request (such as writing a file with a write tool, or searching with a search tool), DO NOT execute the same tool again with the same or similar payload.
+2. Once the task is done, you MUST use the "send_message" action to explain the result and complete the interaction.
 
 ## Retrieval Rule (MANDATORY)
 If the user asks for information that can be retrieved using an available tool (such as "read_file" to view a workspace file's content) and that information is NOT currently visible in the "Working Memory" section above:
@@ -70,15 +74,15 @@ ${availableActionsList}
 
 ${ephemeralSection}JSON Schema Expected:
 {
-  "intent": "respond | unknown",
-  "confidence": 0.9,
+  "intent": "respond | unknown", // Use "respond" when proposing any action (including tools) to address the user's request. Use "unknown" ONLY if you cannot understand the user at all.
+  "confidence": 0.9,             // You MUST use a score of 0.8 or higher (e.g. 0.9, 1.0) when proposing a valid tool or action. DO NOT use 0.0 for proposed tools.
   "proposedAction": {
     "type": "${expectedActionTypes}",
     "payload": {}
   },
   "reasoning": "brief explanation"
 }
-NOTE: confidence must reflect how certain you are (0.0 = completely uncertain, 1.0 = fully certain). Use at least 0.8 when you have a clear action to perform.
+NOTE: confidence must reflect how certain you are (0.0 = completely uncertain, 1.0 = fully certain). You MUST use at least 0.8 when proposing a tool or action to address or progress the user's request.
 `;
 
     if (context.history) {

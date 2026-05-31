@@ -14,7 +14,7 @@ export const BASE_ACTIONS: ActionDefinition[] = [
   },
   {
     type: 'none',
-    description: 'Use ONLY when there is genuinely no action to take:\n   - The user sent an empty or purely social message ("ok", "thanks").\n   - There is no question, task, or request to perform.\n   - Payload expected: {}\n\n   DO NOT use "none" when:\n   - The user asks a question about a file, URL, or data → use the appropriate tool or answer from Working Memory.\n   - The user asks any question you can answer → use send_message.',
+    description: 'Use ONLY when there is genuinely no action to take:\n   - The user sent an empty or purely social message ("ok", "thanks").\n   - There is no question, task, or request to perform.\n   - Payload expected: {}\n\n   DO NOT use "none" when:\n   - The user asks a question about a file, URL, or data → use the appropriate tool or answer from Working Memory.\n   - The user asks any question you can answer → use send_message.\n   - The agent has just successfully executed a tool or completed a user request → use send_message to report the outcome to the user.',
     isTerminal: true,
     minConfidence: 0.0
   }

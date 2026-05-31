@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { EventLog } from '../events/EventLog';
 import { EventType, EventSource } from '../events';
 import { StateResolver } from '../state/StateResolver';
@@ -287,11 +289,22 @@ export class FlowEngine {
           }
 
           if (isTerminal) {
+            let finalResult = actionResult;
+            if (actionType === 'none') {
+              const successfulTools = trace.getResults().filter(r => r.success && r.step.actionType !== 'none');
+              if (successfulTools.length > 0) {
+                const messages = successfulTools.map(t => t.message).filter(Boolean);
+                finalResult = {
+                  ...actionResult,
+                  message: `Task completed successfully:\n${messages.map(m => `- ${m}`).join('\n')}`
+                };
+              }
+            }
             return {
               shouldStop: true,
               result: {
                 success: true,
-                result: accumulatedData ? { ...actionResult, data: { ...actionResult.data, ...accumulatedData } } : actionResult,
+                result: accumulatedData ? { ...finalResult, data: { ...finalResult.data, ...accumulatedData } } : finalResult,
                 decision: lastDecision,
                 state: lastState,
                 trace: { steps: trace.getSteps(), results: trace.getResults(), success: trace.isSuccessful() }
