@@ -21,6 +21,7 @@ import { FlowConfig } from '../flow/FlowConfig';
 import { ActionCatalog } from '../actions/ActionCatalog';
 import { WorkingMemoryStore } from '../memory/WorkingMemoryStore';
 import { RepetitionDetector } from '../flow/RepetitionDetector';
+import { FailureTracker } from '../flow/FailureTracker';
 
 export interface FlowRunInput {
   input: string;
@@ -75,6 +76,9 @@ export class FlowEngine {
       if (this.flowConfig?.detectRepeatedActions) {
         repetitionDetector = new RepetitionDetector(this.flowConfig.maxRepeatedActions ?? 2);
       }
+
+      const maxConsecutiveFailures = Math.max(1, this.flowConfig?.maxConsecutiveFailures ?? 2);
+      const failureTracker = new FailureTracker(maxConsecutiveFailures);
 
       while (stepCount < maxSteps) {
         stepCount++;
@@ -256,6 +260,8 @@ export class FlowEngine {
           });
 
           if (actionResult.success) {
+            failureTracker.recordSuccess();
+
             this.eventLog.append({
               id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
               type: EventType.ActionExecuted,
@@ -299,6 +305,8 @@ export class FlowEngine {
               }
             }
           } else {
+            failureTracker.recordFailure();
+
             this.eventLog.append({
               id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
               type: EventType.ActionFailed,
@@ -313,6 +321,20 @@ export class FlowEngine {
                 projectId: input.projectId
               }
             });
+
+            if (failureTracker.hasReachedLimit()) {
+              return {
+                shouldStop: true,
+                result: {
+                  success: false,
+                  result: actionResult,
+                  decision: lastDecision,
+                  state: lastState,
+                  error: 'Max consecutive failures reached',
+                  trace: { steps: trace.getSteps(), results: trace.getResults(), success: trace.isSuccessful() }
+                }
+              };
+            }
 
             const stopOnToolError = this.flowConfig?.stopOnToolError ?? true;
             if (stopOnToolError) {

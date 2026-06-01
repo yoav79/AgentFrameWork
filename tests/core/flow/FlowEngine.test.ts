@@ -619,4 +619,210 @@ describe('FlowEngine', () => {
     expect(executeCount).toBe(2);
     expect(result.success).toBe(true);
   });
+
+  it('stops on max consecutive failures when stopOnToolError is false (Test A)', async () => {
+    let callCount = 0;
+    const llmAdapter = {
+      generate: async () => {
+        callCount++;
+        return { content: JSON.stringify({
+          intent: 'unknown',
+          confidence: 1,
+          proposedAction: { type: 'read_file', payload: { path: `test${callCount}.txt` } }
+        })};
+      }
+    } as any;
+    
+    let executeCount = 0;
+    const executor = new ActionExecutor(new SkillRegistry());
+    executor.execute = async () => {
+      executeCount++;
+      return { success: false, error: 'fail' };
+    };
+
+    const flowEngine = new FlowEngine(
+      new InMemoryEventLog(),
+      new StateResolver(),
+      new ContextBuilder(),
+      new PromptBuilder(),
+      llmAdapter,
+      new DecisionParser(),
+      new PolicyEngine(),
+      executor,
+      undefined,
+      {
+        maxSteps: 5,
+        maxToolCalls: 5,
+        stopOnPolicyRejection: true,
+        stopOnToolError: false,
+        allowRetries: false,
+        maxRetries: 0,
+        maxConsecutiveFailures: 2
+      }
+    );
+
+    const result = await flowEngine.run({
+      input: 'hello',
+      eventId: 'evt-123'
+    });
+
+    expect(executeCount).toBe(2);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Max consecutive failures reached');
+  });
+
+  it('resets consecutive failures on success (Test B)', async () => {
+    let callCount = 0;
+    const llmAdapter = {
+      generate: async () => {
+        callCount++;
+        return { content: JSON.stringify({
+          intent: 'unknown',
+          confidence: 1,
+          proposedAction: { type: 'read_file', payload: { path: `test${callCount}.txt` } }
+        })};
+      }
+    } as any;
+    
+    let executeCount = 0;
+    const executor = new ActionExecutor(new SkillRegistry());
+    executor.execute = async () => {
+      executeCount++;
+      // Sequence: fail, success, fail
+      if (executeCount === 2) {
+        return { success: true, message: 'ok' };
+      }
+      return { success: false, error: 'fail' };
+    };
+
+    const flowEngine = new FlowEngine(
+      new InMemoryEventLog(),
+      new StateResolver(),
+      new ContextBuilder(),
+      new PromptBuilder(),
+      llmAdapter,
+      new DecisionParser(),
+      new PolicyEngine(),
+      executor,
+      undefined,
+      {
+        maxSteps: 3,
+        maxToolCalls: 3,
+        stopOnPolicyRejection: true,
+        stopOnToolError: false,
+        allowRetries: false,
+        maxRetries: 0,
+        maxConsecutiveFailures: 2
+      }
+    );
+
+    const result = await flowEngine.run({
+      input: 'hello',
+      eventId: 'evt-123'
+    });
+
+    expect(executeCount).toBe(3);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Max steps reached without a terminal response');
+  });
+
+  it('stops immediately on first failure if stopOnToolError is true (Test C)', async () => {
+    const validJson = JSON.stringify({
+      intent: 'unknown',
+      confidence: 1,
+      proposedAction: { type: 'read_file', payload: { path: 'test.txt' } }
+    });
+    
+    let executeCount = 0;
+    const executor = new ActionExecutor(new SkillRegistry());
+    executor.execute = async () => {
+      executeCount++;
+      return { success: false, error: 'first fail' };
+    };
+
+    const flowEngine = new FlowEngine(
+      new InMemoryEventLog(),
+      new StateResolver(),
+      new ContextBuilder(),
+      new PromptBuilder(),
+      new MockLLMAdapter(validJson),
+      new DecisionParser(),
+      new PolicyEngine(),
+      executor,
+      undefined,
+      {
+        maxSteps: 5,
+        maxToolCalls: 5,
+        stopOnPolicyRejection: true,
+        stopOnToolError: true,
+        allowRetries: false,
+        maxRetries: 0,
+        maxConsecutiveFailures: 2
+      }
+    );
+
+    const result = await flowEngine.run({
+      input: 'hello',
+      eventId: 'evt-123'
+    });
+
+    expect(executeCount).toBe(1);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('first fail');
+  });
+
+  it('does not count policy rejection as execution failure (Test D)', async () => {
+    let callCount = 0;
+    const llmAdapter = {
+      generate: async () => {
+        callCount++;
+        return { content: JSON.stringify({
+          intent: 'unknown',
+          confidence: 1,
+          proposedAction: { type: 'read_file', payload: { path: `test${callCount}.txt` } }
+        })};
+      }
+    } as any;
+    
+    let executeCount = 0;
+    const executor = new ActionExecutor(new SkillRegistry());
+    executor.execute = async () => {
+      executeCount++;
+      return { success: false, error: 'fail' };
+    };
+
+    const policyEngine = {
+      evaluate: () => ({ allowed: false, reason: 'policy rejected', severity: 'error' })
+    } as any;
+
+    const flowEngine = new FlowEngine(
+      new InMemoryEventLog(),
+      new StateResolver(),
+      new ContextBuilder(),
+      new PromptBuilder(),
+      llmAdapter,
+      new DecisionParser(),
+      policyEngine,
+      executor,
+      undefined,
+      {
+        maxSteps: 2,
+        maxToolCalls: 2,
+        stopOnPolicyRejection: true,
+        stopOnToolError: false,
+        allowRetries: false,
+        maxRetries: 0,
+        maxConsecutiveFailures: 2
+      }
+    );
+
+    const result = await flowEngine.run({
+      input: 'hello',
+      eventId: 'evt-123'
+    });
+
+    expect(executeCount).toBe(0);
+    expect(result.success).toBe(false);
+    expect(result.policyReason).toBe('policy rejected');
+  });
 });
