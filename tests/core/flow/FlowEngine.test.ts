@@ -825,4 +825,210 @@ describe('FlowEngine', () => {
     expect(result.success).toBe(false);
     expect(result.policyReason).toBe('policy rejected');
   });
+
+  it('preserves behavior when requireTerminalAction is false (Test A)', async () => {
+    let callCount = 0;
+    const llmAdapter = {
+      generate: async () => {
+        callCount++;
+        return { content: JSON.stringify({
+          intent: 'unknown',
+          confidence: 1,
+          proposedAction: { type: 'read_file', payload: { path: `test${callCount}.txt` } }
+        })};
+      }
+    } as any;
+    
+    let executeCount = 0;
+    const executor = new ActionExecutor(new SkillRegistry());
+    executor.execute = async () => {
+      executeCount++;
+      return { success: true, message: 'ok' };
+    };
+
+    const flowEngine = new FlowEngine(
+      new InMemoryEventLog(),
+      new StateResolver(),
+      new ContextBuilder(),
+      new PromptBuilder(),
+      llmAdapter,
+      new DecisionParser(),
+      new PolicyEngine(),
+      executor,
+      undefined,
+      {
+        maxSteps: 2,
+        maxToolCalls: 2,
+        stopOnPolicyRejection: true,
+        stopOnToolError: true,
+        allowRetries: false,
+        maxRetries: 0,
+        requireTerminalAction: false
+      }
+    );
+
+    const result = await flowEngine.run({
+      input: 'hello',
+      eventId: 'evt-123'
+    });
+
+    expect(executeCount).toBe(2);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Max steps reached without a terminal response');
+  });
+
+  it('generates fallback decision when requireTerminalAction is true and maxSteps reached (Test B)', async () => {
+    let callCount = 0;
+    const llmAdapter = {
+      generate: async () => {
+        callCount++;
+        return { content: JSON.stringify({
+          intent: 'unknown',
+          confidence: 1,
+          proposedAction: { type: 'read_file', payload: { path: `test${callCount}.txt` } }
+        })};
+      }
+    } as any;
+    
+    let executeCount = 0;
+    const executor = new ActionExecutor(new SkillRegistry());
+    executor.execute = async () => {
+      executeCount++;
+      return { success: true, message: 'ok' };
+    };
+
+    const flowEngine = new FlowEngine(
+      new InMemoryEventLog(),
+      new StateResolver(),
+      new ContextBuilder(),
+      new PromptBuilder(),
+      llmAdapter,
+      new DecisionParser(),
+      new PolicyEngine(),
+      executor,
+      undefined,
+      {
+        maxSteps: 2,
+        maxToolCalls: 2,
+        stopOnPolicyRejection: true,
+        stopOnToolError: true,
+        allowRetries: false,
+        maxRetries: 0,
+        requireTerminalAction: true
+      }
+    );
+
+    const result = await flowEngine.run({
+      input: 'hello',
+      eventId: 'evt-123'
+    });
+
+    expect(executeCount).toBe(2);
+    expect(result.success).toBe(true);
+    expect(result.result?.message).toContain('I completed the available steps but could not produce a final response automatically.');
+    expect(result.decision?.proposedAction?.type).toBe('send_message');
+  });
+
+  it('does not generate fallback if a terminal action was reached (Test C)', async () => {
+    let callCount = 0;
+    const llmAdapter = {
+      generate: async () => {
+        callCount++;
+        if (callCount === 1) {
+          return { content: JSON.stringify({
+            intent: 'unknown',
+            confidence: 1,
+            proposedAction: { type: 'read_file', payload: { path: `test.txt` } }
+          })};
+        }
+        return { content: JSON.stringify({
+          intent: 'respond',
+          confidence: 1,
+          proposedAction: { type: 'send_message', payload: { message: 'real terminal message' } }
+        })};
+      }
+    } as any;
+    
+    let executeCount = 0;
+    const executor = new ActionExecutor(new SkillRegistry());
+    executor.execute = async () => {
+      executeCount++;
+      return { success: true, message: 'real terminal message' };
+    };
+
+    const flowEngine = new FlowEngine(
+      new InMemoryEventLog(),
+      new StateResolver(),
+      new ContextBuilder(),
+      new PromptBuilder(),
+      llmAdapter,
+      new DecisionParser(),
+      new PolicyEngine(),
+      executor,
+      undefined,
+      {
+        maxSteps: 2,
+        maxToolCalls: 2,
+        stopOnPolicyRejection: true,
+        stopOnToolError: true,
+        allowRetries: false,
+        maxRetries: 0,
+        requireTerminalAction: true
+      }
+    );
+
+    const result = await flowEngine.run({
+      input: 'hello',
+      eventId: 'evt-123'
+    });
+
+    expect(executeCount).toBe(2);
+    expect(result.success).toBe(true);
+    expect(result.result?.message).toBe('real terminal message');
+  });
+
+  it('does not turn loop limits or repetitions into terminal success (Test D)', async () => {
+    const validJson = JSON.stringify({
+      intent: 'unknown',
+      confidence: 1,
+      proposedAction: { type: 'read_file', payload: { path: 'test.txt' } }
+    });
+    
+    let executeCount = 0;
+    const executor = new ActionExecutor(new SkillRegistry());
+    executor.execute = async () => {
+      executeCount++;
+      return { success: true, message: 'read ok' };
+    };
+
+    const flowEngine = new FlowEngine(
+      new InMemoryEventLog(),
+      new StateResolver(),
+      new ContextBuilder(),
+      new PromptBuilder(),
+      new MockLLMAdapter(validJson),
+      new DecisionParser(),
+      new PolicyEngine(),
+      executor,
+      undefined,
+      {
+        maxSteps: 3,
+        maxToolCalls: 1, // Will fail on 2nd step before running executor because maxToolCalls=1
+        stopOnPolicyRejection: true,
+        stopOnToolError: true,
+        allowRetries: false,
+        maxRetries: 0,
+        requireTerminalAction: true
+      }
+    );
+
+    const result = await flowEngine.run({
+      input: 'hello',
+      eventId: 'evt-123'
+    });
+
+    expect(executeCount).toBe(1);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Max tool calls exceeded');
+  });
 });

@@ -22,6 +22,7 @@ import { ActionCatalog } from '../actions/ActionCatalog';
 import { WorkingMemoryStore } from '../memory/WorkingMemoryStore';
 import { RepetitionDetector } from '../flow/RepetitionDetector';
 import { FailureTracker } from '../flow/FailureTracker';
+import { TerminalGuard } from '../flow/TerminalGuard';
 
 export interface FlowRunInput {
   input: string;
@@ -420,6 +421,19 @@ export class FlowEngine {
       const isLastTerminal = lastActionType ? (this.actionCatalog ? this.actionCatalog.isTerminal(lastActionType) : ActionCatalog.isTerminal(lastActionType)) : false;
 
       if (!isLastTerminal) {
+        if (this.flowConfig?.requireTerminalAction) {
+          const terminalGuard = new TerminalGuard();
+          const fallbackDecision = terminalGuard.createFallbackDecision('Max steps reached without a terminal response', { lastResult, stepCount });
+          
+          return {
+            success: true,
+            result: accumulatedData && lastResult ? { ...lastResult, message: (fallbackDecision.proposedAction?.payload as any)?.message, data: { ...lastResult.data, ...accumulatedData } } : { success: true, message: (fallbackDecision.proposedAction?.payload as any)?.message },
+            decision: fallbackDecision,
+            state: lastState,
+            trace: { steps: trace.getSteps(), results: trace.getResults(), success: trace.isSuccessful() }
+          };
+        }
+
         return {
           success: false,
           error: 'Max steps reached without a terminal response',
