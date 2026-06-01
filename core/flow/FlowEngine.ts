@@ -20,6 +20,7 @@ import { ResultSanitizer } from '../flow/ResultSanitizer';
 import { FlowConfig } from '../flow/FlowConfig';
 import { ActionCatalog } from '../actions/ActionCatalog';
 import { WorkingMemoryStore } from '../memory/WorkingMemoryStore';
+import { RepetitionDetector } from '../flow/RepetitionDetector';
 
 export interface FlowRunInput {
   input: string;
@@ -70,6 +71,11 @@ export class FlowEngine {
       let lastState: State | undefined;
       let accumulatedData: any = undefined;
 
+      let repetitionDetector: RepetitionDetector | undefined;
+      if (this.flowConfig?.detectRepeatedActions) {
+        repetitionDetector = new RepetitionDetector(this.flowConfig.maxRepeatedActions ?? 2);
+      }
+
       while (stepCount < maxSteps) {
         stepCount++;
 
@@ -105,6 +111,42 @@ export class FlowEngine {
           lastDecision = this.decisionParser.parse(llmResult.content);
 
           const actionType = lastDecision.proposedAction?.type || 'unknown';
+          const payload = lastDecision.proposedAction?.payload;
+
+          if (repetitionDetector) {
+            const action = { actionType, payload };
+            repetitionDetector.record(action);
+            const isRepeated = repetitionDetector.isRepeated(action);
+
+            if (isRepeated) {
+              const agentStep: AgentStep = {
+                id: `step-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+                actionType,
+                decision: lastDecision,
+                startedAt: new Date(),
+                endedAt: new Date(),
+                success: false,
+                error: `Repeated action detected: ${actionType}`
+              };
+              trace.addStep(agentStep);
+              trace.addResult({
+                step: agentStep,
+                success: false,
+                error: agentStep.error
+              });
+              return {
+                shouldStop: true,
+                result: {
+                  success: false,
+                  decision: lastDecision,
+                  state: lastState,
+                  error: agentStep.error,
+                  trace: { steps: trace.getSteps(), results: trace.getResults(), success: trace.isSuccessful() }
+                }
+              };
+            }
+          }
+
           const agentStep: AgentStep = {
             id: `step-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
             actionType,

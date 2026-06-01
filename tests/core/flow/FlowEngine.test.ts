@@ -419,4 +419,204 @@ describe('FlowEngine', () => {
     expect(result.state?.workingMemory).toHaveLength(1);
     expect(result.state?.workingMemory?.[0]?.content).toBe('hello file content');
   });
+
+  it('does not stop on repeated actions when detectRepeatedActions is false (Test A)', async () => {
+    const validJson = JSON.stringify({
+      intent: 'unknown',
+      confidence: 1,
+      proposedAction: { type: 'read_file', payload: { path: 'test.txt' } }
+    });
+    
+    let executeCount = 0;
+    const executor = new ActionExecutor(new SkillRegistry());
+    executor.execute = async () => {
+      executeCount++;
+      return { success: true, message: 'read ok' };
+    };
+
+    const flowEngine = new FlowEngine(
+      new InMemoryEventLog(),
+      new StateResolver(),
+      new ContextBuilder(),
+      new PromptBuilder(),
+      new MockLLMAdapter(validJson),
+      new DecisionParser(),
+      new PolicyEngine(),
+      executor,
+      undefined,
+      {
+        maxSteps: 2,
+        maxToolCalls: 2,
+        stopOnPolicyRejection: true,
+        stopOnToolError: true,
+        allowRetries: false,
+        maxRetries: 0,
+        detectRepeatedActions: false
+      }
+    );
+
+    const result = await flowEngine.run({
+      input: 'hello',
+      eventId: 'evt-123'
+    });
+
+    expect(executeCount).toBe(2);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Max steps reached without a terminal response');
+  });
+
+  it('stops on repeated action when detectRepeatedActions is true and limit reached (Test B)', async () => {
+    const validJson = JSON.stringify({
+      intent: 'unknown',
+      confidence: 1,
+      proposedAction: { type: 'read_file', payload: { path: 'test.txt' } }
+    });
+    
+    let executeCount = 0;
+    const executor = new ActionExecutor(new SkillRegistry());
+    executor.execute = async () => {
+      executeCount++;
+      return { success: true, message: 'read ok' };
+    };
+
+    const flowEngine = new FlowEngine(
+      new InMemoryEventLog(),
+      new StateResolver(),
+      new ContextBuilder(),
+      new PromptBuilder(),
+      new MockLLMAdapter(validJson),
+      new DecisionParser(),
+      new PolicyEngine(),
+      executor,
+      undefined,
+      {
+        maxSteps: 3,
+        maxToolCalls: 3,
+        stopOnPolicyRejection: true,
+        stopOnToolError: true,
+        allowRetries: false,
+        maxRetries: 0,
+        detectRepeatedActions: true,
+        maxRepeatedActions: 2
+      }
+    );
+
+    const result = await flowEngine.run({
+      input: 'hello',
+      eventId: 'evt-123'
+    });
+
+    expect(executeCount).toBe(1); // the second one should not be executed
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Repeated action detected: read_file');
+  });
+
+  it('does not stop when action type is same but payload is different (Test C)', async () => {
+    let callCount = 0;
+    const llmAdapter = {
+      generate: async () => {
+        callCount++;
+        const path = callCount === 1 ? 'test1.txt' : 'test2.txt';
+        return { content: JSON.stringify({
+          intent: 'unknown',
+          confidence: 1,
+          proposedAction: { type: 'read_file', payload: { path } }
+        })};
+      }
+    } as any;
+    
+    let executeCount = 0;
+    const executor = new ActionExecutor(new SkillRegistry());
+    executor.execute = async () => {
+      executeCount++;
+      return { success: true, message: 'read ok' };
+    };
+
+    const flowEngine = new FlowEngine(
+      new InMemoryEventLog(),
+      new StateResolver(),
+      new ContextBuilder(),
+      new PromptBuilder(),
+      llmAdapter,
+      new DecisionParser(),
+      new PolicyEngine(),
+      executor,
+      undefined,
+      {
+        maxSteps: 2,
+        maxToolCalls: 2,
+        stopOnPolicyRejection: true,
+        stopOnToolError: true,
+        allowRetries: false,
+        maxRetries: 0,
+        detectRepeatedActions: true,
+        maxRepeatedActions: 2
+      }
+    );
+
+    const result = await flowEngine.run({
+      input: 'hello',
+      eventId: 'evt-123'
+    });
+
+    expect(executeCount).toBe(2);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Max steps reached without a terminal response');
+  });
+
+  it('does not stop when payload is same but action type is different (Test D)', async () => {
+    let callCount = 0;
+    const llmAdapter = {
+      generate: async () => {
+        callCount++;
+        const type = callCount === 1 ? 'read_file' : 'send_message';
+        return { content: JSON.stringify({
+          intent: 'unknown',
+          confidence: 1,
+          proposedAction: { type, payload: { path: 'test.txt' } }
+        })};
+      }
+    } as any;
+    
+    let executeCount = 0;
+    const executor = new ActionExecutor(new SkillRegistry());
+    executor.execute = async () => {
+      executeCount++;
+      return { success: true, message: 'ok' };
+    };
+
+    const policyEngine = {
+      evaluate: () => ({ allowed: true, reason: 'ok', severity: 'info' })
+    } as any;
+
+    const flowEngine = new FlowEngine(
+      new InMemoryEventLog(),
+      new StateResolver(),
+      new ContextBuilder(),
+      new PromptBuilder(),
+      llmAdapter,
+      new DecisionParser(),
+      policyEngine,
+      executor,
+      undefined,
+      {
+        maxSteps: 2,
+        maxToolCalls: 2,
+        stopOnPolicyRejection: true,
+        stopOnToolError: true,
+        allowRetries: false,
+        maxRetries: 0,
+        detectRepeatedActions: true,
+        maxRepeatedActions: 2
+      }
+    );
+
+    const result = await flowEngine.run({
+      input: 'hello',
+      eventId: 'evt-123'
+    });
+
+    expect(executeCount).toBe(2);
+    expect(result.success).toBe(true);
+  });
 });
