@@ -9,6 +9,7 @@ import { PromptBuilder } from '../context/PromptBuilder';
 import { DecisionParser } from '../routing/DecisionParser';
 import { SkillRegistry } from '../skills/SkillRegistry';
 import { getNativeSkillActionTypes, getNativeSkillDefinitions } from '../skills/NativeSkills';
+import { getCustomSkillActionTypes, getCustomSkillDefinitions } from '../../skills/CustomSkills';
 import { ActionExecutor } from '../flow/ActionExecutor';
 import { PolicyEngine } from '../policy/PolicyEngine';
 import { MemoryReader } from '../memory/MemoryReader';
@@ -46,20 +47,36 @@ export class AgentFactory {
       }
     }
 
+    // Detect conflicts between native and custom skill action types
+    const nativeActionTypes = getNativeSkillActionTypes();
+    const customActionTypes = getCustomSkillActionTypes();
+    for (const type of customActionTypes) {
+      if (nativeActionTypes.includes(type)) {
+        throw new Error(`[AgentFactory] Custom skill conflicts with native skill: ${type}`);
+      }
+    }
+
+    const allValidSkillTypes = [...nativeActionTypes, ...customActionTypes];
+
     if (effectiveProfile?.allowedSkills) {
       if (effectiveProfile.allowedSkills.length === 0) {
         throw new Error('[AgentFactory] AgentProfile.allowedSkills cannot be empty in interactive agents.');
       }
-      const validBaseSkills = getNativeSkillActionTypes();
       for (const skill of effectiveProfile.allowedSkills) {
-        if (!validBaseSkills.includes(skill)) {
+        if (!allValidSkillTypes.includes(skill)) {
           throw new Error(`[AgentFactory] AgentProfile references unknown base skill: ${skill}`);
         }
       }
     }
 
-    // Create the session-specific ActionCatalog instance
-    const actionCatalog = new ActionCatalog(undefined, effectiveProfile?.allowedSkills);
+    // Collect custom ActionDefinitions that are explicitly allowed
+    const allowedCustomDefs = getCustomSkillDefinitions().filter(
+      def => effectiveProfile?.allowedSkills?.includes(def.actionType)
+    );
+    const allowedCustomActionDefs = allowedCustomDefs.map(def => def.actionDefinition);
+
+    // Create the session-specific ActionCatalog instance (with custom action defs injected)
+    const actionCatalog = new ActionCatalog(allowedCustomActionDefs, effectiveProfile?.allowedSkills);
 
     const promptBuilder = new PromptBuilder(actionCatalog, effectiveProfile);
     const decisionParser = new DecisionParser(actionCatalog);
@@ -67,10 +84,15 @@ export class AgentFactory {
     const memoryReader = new MemoryReader(eventLog);
     
     const skillRegistry = new SkillRegistry();
+    // Register native skills (always when allowedSkills is undefined, filtered otherwise)
     for (const def of getNativeSkillDefinitions()) {
       if (!effectiveProfile?.allowedSkills || effectiveProfile.allowedSkills.includes(def.actionType)) {
         skillRegistry.register(new def.skillClass());
       }
+    }
+    // Register custom skills (only when explicitly listed in allowedSkills)
+    for (const def of allowedCustomDefs) {
+      skillRegistry.register(new def.skillClass());
     }
     
     const toolRegistry = new ToolRegistry();

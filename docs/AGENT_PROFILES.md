@@ -41,7 +41,7 @@ npm run dev -- --agent standup-demo "Cuéntame un chiste corto"
 - `rules` (string[]): Reglas inquebrantables de negocio.
 - `enabledPlugins` (string[]): Nombres de los plugins físicos permitidos para cargar en memoria.
 - `allowedTools` (string[]): Acciones lógicas (`actionType`) permitidas.
-- `allowedSkills` (string[]): Acciones base permitidas (usualmente `["send_message", "none"]`).
+- `allowedSkills` (string[]): Acciones base permitidas (tanto Native System Skills como Custom Skills registradas en `skills/CustomSkills.ts`).
 - `examples` (array): Ejemplos *few-shot* para enrutar decisiones del LLM.
 - `safety` (object): Restricciones adicionales y bloqueos.
 - `metadata` (object): Metadatos adicionales opcionales.
@@ -65,11 +65,27 @@ El framework utiliza un sistema de **filtrado estructural de 3 capas**:
   - `allowedSkills: []` → 🛑 Actualmente **NO** está permitido y el Factory lanzará un error de validación, previniendo un agente que quede silenciado.
   - Excluir explícitamente `"send_message"` (ej. usando `["none"]`) creará agentes que operen en silencio sin reportar estado de vuelta al usuario.
 
+## Custom Skills
+Las **Custom Skills** o Domain Skills son habilidades programadas que no hacen I/O externo (por definición del MVP) sino que ejecutan lógica determinista interna transversal.
+- Se ubican en la carpeta raíz `skills/` y se declaran en el catálogo `skills/CustomSkills.ts`.
+- **No se cargan por defecto**. Son estrictamente *opt-in*: deben aparecer explícitamente en el arreglo `AgentProfile.allowedSkills` para ser inyectadas.
+- Son ejecutadas por el `ActionExecutor` vía `SkillRegistry` exactamente igual que las Native Skills.
+- Actualmente no soportan carga dinámica (*dynamic import*) ni escaneo de filesystem; deben registrarse manualmente en `CustomSkills.ts`.
+
+### validate_required_fields
+La primera Custom Skill disponible es `validate_required_fields`.
+- **Objetivo**: Validar si un payload contiene todos los campos requeridos antes de proceder a una acción crítica.
+- **Payload esperado**: `{ "fields": { "key": "value", ... }, "required": ["key1"] }`
+- **Resultado esperado**: `{ "valid": boolean, "missing": ["key1"] }`
+- **isTerminal**: `false` (el agente encadena la acción siguiente, por ejemplo, usando `ask_clarification` si faltan campos).
+- **Caso de uso típico**: En logística, validar que el usuario entregó `trackingNumber` e `issue` antes de intentar usar `write_file`.
+
+
 ## Ejemplos Incluidos
 El framework contiene tres perfiles demo pre-construidos en `/agents/`:
 1. **`standup-demo`**: Un comediante de tecnología puro, con un tono conversacional que omite todas las herramientas externas e ignora la skill `none`.
 2. **`meat-sales-demo`**: Un agente de ventas sin conexión al exterior, que responde consistentemente sobre cortes de carne y no accede al sistema de archivos.
-3. **`logistics-demo`**: Un agente de soporte capaz de registrar tickets, que ilustra el principio de mínimo privilegio al usar *únicamente* `enabledPlugins: ["write_file"]` y `allowedTools: ["write_file"]`.
+3. **`logistics-demo`**: Un agente de soporte capaz de registrar tickets, que ilustra el principio de mínimo privilegio al usar *únicamente* `enabledPlugins: ["write_file"]` y `allowedTools: ["write_file"]`. Ahora incluye en sus `allowedSkills` el uso combinado de `validate_required_fields` para asegurar que posee todos los datos necesarios, `ask_clarification` para pedirlos si faltan, y `send_message`.
 
 ## Buenas Prácticas
 - **Mantener `systemInstructions` claras y cortas**: La identidad principal debe ser directa. Los casos y flujos más grandes deben dividirse en `rules`.
@@ -83,6 +99,7 @@ El framework contiene tres perfiles demo pre-construidos en `/agents/`:
 - No existe hot-reload de perfiles (cambios en JSON obligan a reiniciar el CLI).
 - No hay comandos en el REPL (ej. `/use-agent`) para pivotear dinámicamente entre personalidades en vivo.
 - No hay "Capability Packs" (ej. "darle acceso completo al pack GitHub").
+- No hay carga dinámica (*dynamic loading*) ni escaneo del sistema de archivos para las Custom Skills; requieren registro manual en el catálogo.
 
 ## Troubleshooting
 - **Error: Agent profile not found**: Verifique que exista `agents/<agentId>/profile.json`.

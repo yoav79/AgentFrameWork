@@ -477,6 +477,81 @@ describe('AgentFactory', () => {
     });
   });
 
+  describe('Custom Skill filtering by AgentProfile (allowedSkills)', () => {
+    it('does NOT register validate_required_fields when allowedSkills is undefined', () => {
+      const llmAdapter = new MockLLMAdapter('{}');
+      const kernel = AgentFactory.create(llmAdapter);
+      const registry = (kernel as any).actionExecutor.registry;
+      expect(registry.getSkillForAction('validate_required_fields')).toBeUndefined();
+    });
+
+    it('does NOT expose validate_required_fields in prompt when allowedSkills is undefined', () => {
+      const llmAdapter = new MockLLMAdapter('{}');
+      const kernel = AgentFactory.create(llmAdapter);
+      const prompt = (kernel as any).promptBuilder.build({ messageCount: 1 });
+      expect(prompt).not.toContain('validate_required_fields');
+    });
+
+    it('registers validate_required_fields when explicitly listed in allowedSkills', () => {
+      const profile = {
+        id: 'custom-agent',
+        name: 'Custom',
+        description: 'Custom',
+        persona: { systemInstructions: 'Do custom stuff' },
+        allowedSkills: ['send_message', 'validate_required_fields']
+      };
+      const llmAdapter = new MockLLMAdapter('{}');
+      const kernel = AgentFactory.create(llmAdapter, { agentProfile: profile });
+      const registry = (kernel as any).actionExecutor.registry;
+      expect(registry.getSkillForAction('validate_required_fields')).toBeDefined();
+      expect(registry.getSkillForAction('send_message')).toBeDefined();
+    });
+
+    it('exposes validate_required_fields in prompt when explicitly allowed', () => {
+      const profile = {
+        id: 'custom-agent',
+        name: 'Custom',
+        description: 'Custom',
+        persona: { systemInstructions: 'Do custom stuff' },
+        allowedSkills: ['send_message', 'validate_required_fields']
+      };
+      const llmAdapter = new MockLLMAdapter('{}');
+      const kernel = AgentFactory.create(llmAdapter, { agentProfile: profile });
+      const prompt = (kernel as any).promptBuilder.build({ messageCount: 1 });
+      expect(prompt).toContain('validate_required_fields');
+    });
+
+    it('allows allowedSkills with only a custom skill (no native)', () => {
+      const profile = {
+        id: 'custom-only',
+        name: 'Custom Only',
+        description: 'Custom Only',
+        persona: { systemInstructions: 'Only custom' },
+        allowedSkills: ['validate_required_fields']
+      };
+      const llmAdapter = new MockLLMAdapter('{}');
+      const kernel = AgentFactory.create(llmAdapter, { agentProfile: profile });
+      const registry = (kernel as any).actionExecutor.registry;
+      expect(registry.getSkillForAction('validate_required_fields')).toBeDefined();
+      expect(registry.getSkillForAction('send_message')).toBeUndefined();
+    });
+
+    it('still fails with error for truly unknown skills', () => {
+      const profile = {
+        id: 'bad',
+        name: 'Bad',
+        description: 'Bad',
+        persona: { systemInstructions: 'Bad' },
+        allowedSkills: ['totally_unknown_skill']
+      };
+      const llmAdapter = new MockLLMAdapter('{}');
+      expect(() => AgentFactory.create(llmAdapter, { agentProfile: profile }))
+        .toThrow('[AgentFactory] AgentProfile references unknown base skill: totally_unknown_skill');
+    });
+  });
+
+
+
   describe('Tool Filtering by AgentProfile (allowedTools)', () => {
     it('maintains current behavior if allowedTools is undefined', () => {
       const os = require('os');
