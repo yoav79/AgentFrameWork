@@ -147,6 +147,7 @@ La arquitectura desacopla estrictamente la interfaz de la lógica agnóstica:
 - Parseo profundo de parámetros y aislamiento posicional de texto.
 - Manejo limpio de errores controlados (`FrameworkError`).
 - Motor de **Agente** con ejecución de flujo multi-paso real determinista (`FlowEngine`).
+- **Loop Profesional** con mecanismos de control configurables (Repetition Detector, Failure Tracker, Terminal Guard), garantizando robustez sin perder retrocompatibilidad.
 - Catálogo unificado de herramientas (`ActionCatalog`) y evaluación dinámica en el `PolicyEngine`.
 - Soporte para herramientas reales: lectura de archivos locales (`ReadFileTool`) con validación de seguridad de rutas.
 - Aislamiento estricto de historial de memoria de conversación utilizando identificadores de sesión (`sessionId`), proyecto (`projectId`) y ejecución (`runId`/`stepId`).

@@ -4,6 +4,17 @@ Este documento define la dirección de desarrollo a mediano y largo plazo para *
 
 ---
 
+## ✅ Hito G: Loop Profesional (Completado)
+Se ha estabilizado el bucle de ejecución central (`FlowEngine`) añadiendo mecanismos de control robustos ("guards") para entornos profesionales, sin alterar el comportamiento determinista por defecto.
+- **Capacidades Implementadas:**
+  - `RepetitionDetector`: Previene bucles infinitos detectando acciones idénticas.
+  - `FailureTracker`: Limita el número de fallos consecutivos antes de abortar.
+  - `TerminalGuard`: Provee una acción de fallback si el agente agota los pasos sin una respuesta terminal.
+  - Extensión de configuración en `FlowConfig` y pruebas combinadas exhaustivas.
+- **Nota:** Los defaults se mantienen conservadores y retrocompatibles. Aspectos como `actionBudget`, `tokenBudget` y *no-progress detection* quedan pendientes. Redis, RAG, Web, MCP y arquitecturas Multi-Agent quedan fuera de este hito y se abordarán en sus respectivas fases.
+
+---
+
 ## Fase 3: Ejecución Basada en Planes y Gestión de Artefactos (Próximo Sprint)
 El objetivo es permitir que el agente aborde de manera determinista tareas extensas y complejas minimizando loops de re-ejecución.
 
