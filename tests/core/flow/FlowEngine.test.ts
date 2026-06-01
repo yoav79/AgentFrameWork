@@ -1032,3 +1032,263 @@ describe('FlowEngine', () => {
     expect(result.error).toBe('Max tool calls exceeded');
   });
 });
+
+describe('professional loop guards integration', () => {
+  it('detectRepeatedActions=true + requireTerminalAction=true (Test A)', async () => {
+    let callCount = 0;
+    const llmAdapter = {
+      generate: async () => {
+        callCount++;
+        return { content: JSON.stringify({
+          intent: 'unknown',
+          confidence: 1,
+          proposedAction: { type: 'read_file', payload: { path: 'same.txt' } }
+        })};
+      }
+    } as any;
+    
+    let executeCount = 0;
+    const executor = new ActionExecutor(new SkillRegistry());
+    executor.execute = async () => {
+      executeCount++;
+      return { success: true, message: 'ok' };
+    };
+
+    const flowEngine = new FlowEngine(
+      new InMemoryEventLog(),
+      new StateResolver(),
+      new ContextBuilder(),
+      new PromptBuilder(),
+      llmAdapter,
+      new DecisionParser(),
+      new PolicyEngine(),
+      executor,
+      undefined,
+      {
+        maxSteps: 5,
+        maxToolCalls: 5,
+        stopOnPolicyRejection: true,
+        stopOnToolError: true,
+        allowRetries: false,
+        maxRetries: 0,
+        detectRepeatedActions: true,
+        maxRepeatedActions: 2,
+        requireTerminalAction: true
+      }
+    );
+
+    const result = await flowEngine.run({
+      input: 'hello',
+      eventId: 'evt-123'
+    });
+
+    expect(executeCount).toBe(1);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Repeated action detected');
+  });
+
+  it('stopOnToolError=false + maxConsecutiveFailures=2 + requireTerminalAction=true (Test B)', async () => {
+    let callCount = 0;
+    const llmAdapter = {
+      generate: async () => {
+        callCount++;
+        return { content: JSON.stringify({
+          intent: 'unknown',
+          confidence: 1,
+          proposedAction: { type: 'read_file', payload: { path: `test${callCount}.txt` } }
+        })};
+      }
+    } as any;
+    
+    let executeCount = 0;
+    const executor = new ActionExecutor(new SkillRegistry());
+    executor.execute = async () => {
+      executeCount++;
+      return { success: false, error: 'fail' };
+    };
+
+    const flowEngine = new FlowEngine(
+      new InMemoryEventLog(),
+      new StateResolver(),
+      new ContextBuilder(),
+      new PromptBuilder(),
+      llmAdapter,
+      new DecisionParser(),
+      new PolicyEngine(),
+      executor,
+      undefined,
+      {
+        maxSteps: 5,
+        maxToolCalls: 5,
+        stopOnPolicyRejection: true,
+        stopOnToolError: false,
+        allowRetries: false,
+        maxRetries: 0,
+        maxConsecutiveFailures: 2,
+        requireTerminalAction: true
+      }
+    );
+
+    const result = await flowEngine.run({
+      input: 'hello',
+      eventId: 'evt-123'
+    });
+
+    expect(executeCount).toBe(2);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Max consecutive failures reached');
+  });
+
+  it('requireTerminalAction=true sin repeated action ni failure limit (Test C)', async () => {
+    let callCount = 0;
+    const llmAdapter = {
+      generate: async () => {
+        callCount++;
+        return { content: JSON.stringify({
+          intent: 'unknown',
+          confidence: 1,
+          proposedAction: { type: 'read_file', payload: { path: `test${callCount}.txt` } }
+        })};
+      }
+    } as any;
+    
+    let executeCount = 0;
+    const executor = new ActionExecutor(new SkillRegistry());
+    executor.execute = async () => {
+      executeCount++;
+      return { success: true, message: 'ok' };
+    };
+
+    const flowEngine = new FlowEngine(
+      new InMemoryEventLog(),
+      new StateResolver(),
+      new ContextBuilder(),
+      new PromptBuilder(),
+      llmAdapter,
+      new DecisionParser(),
+      new PolicyEngine(),
+      executor,
+      undefined,
+      {
+        maxSteps: 3,
+        maxToolCalls: 3,
+        stopOnPolicyRejection: true,
+        stopOnToolError: true,
+        allowRetries: false,
+        maxRetries: 0,
+        requireTerminalAction: true
+      }
+    );
+
+    const result = await flowEngine.run({
+      input: 'hello',
+      eventId: 'evt-123'
+    });
+
+    expect(executeCount).toBe(3);
+    expect(result.success).toBe(true);
+    expect(result.result?.message).toContain('I completed the available steps but could not produce a final response automatically.');
+  });
+
+  it('detectRepeatedActions=true con acciones distintas (Test D)', async () => {
+    let callCount = 0;
+    const llmAdapter = {
+      generate: async () => {
+        callCount++;
+        return { content: JSON.stringify({
+          intent: 'unknown',
+          confidence: 1,
+          proposedAction: { type: 'read_file', payload: { path: `test${callCount}.txt` } }
+        })};
+      }
+    } as any;
+    
+    let executeCount = 0;
+    const executor = new ActionExecutor(new SkillRegistry());
+    executor.execute = async () => {
+      executeCount++;
+      return { success: true, message: 'ok' };
+    };
+
+    const flowEngine = new FlowEngine(
+      new InMemoryEventLog(),
+      new StateResolver(),
+      new ContextBuilder(),
+      new PromptBuilder(),
+      llmAdapter,
+      new DecisionParser(),
+      new PolicyEngine(),
+      executor,
+      undefined,
+      {
+        maxSteps: 3,
+        maxToolCalls: 3,
+        stopOnPolicyRejection: true,
+        stopOnToolError: true,
+        allowRetries: false,
+        maxRetries: 0,
+        detectRepeatedActions: true,
+        maxRepeatedActions: 2
+      }
+    );
+
+    const result = await flowEngine.run({
+      input: 'hello',
+      eventId: 'evt-123'
+    });
+
+    expect(executeCount).toBe(3);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Max steps reached without a terminal response');
+  });
+
+  it('Todos los flags nuevos desactivados o undefined (Test E)', async () => {
+    let callCount = 0;
+    const llmAdapter = {
+      generate: async () => {
+        callCount++;
+        return { content: JSON.stringify({
+          intent: 'unknown',
+          confidence: 1,
+          proposedAction: { type: 'read_file', payload: { path: 'same.txt' } }
+        })};
+      }
+    } as any;
+    
+    let executeCount = 0;
+    const executor = new ActionExecutor(new SkillRegistry());
+    executor.execute = async () => {
+      executeCount++;
+      return { success: true, message: 'ok' };
+    };
+
+    const flowEngine = new FlowEngine(
+      new InMemoryEventLog(),
+      new StateResolver(),
+      new ContextBuilder(),
+      new PromptBuilder(),
+      llmAdapter,
+      new DecisionParser(),
+      new PolicyEngine(),
+      executor,
+      undefined,
+      {
+        maxSteps: 3,
+        maxToolCalls: 3,
+        stopOnPolicyRejection: true,
+        stopOnToolError: true,
+        allowRetries: false,
+        maxRetries: 0
+      }
+    );
+
+    const result = await flowEngine.run({
+      input: 'hello',
+      eventId: 'evt-123'
+    });
+
+    expect(executeCount).toBe(3);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Max steps reached without a terminal response');
+  });
+});
