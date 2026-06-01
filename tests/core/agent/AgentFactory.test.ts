@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { AgentFactory } from '../../../core/agent/AgentFactory';
 import { LLMAdapter } from '../../../core/llm/LLMAdapter';
+import { getNativeSkillActionTypes } from '../../../core/skills/NativeSkills';
 
 class MockLLMAdapter implements LLMAdapter {
   constructor(public responseContent: string) {}
@@ -248,7 +249,7 @@ describe('AgentFactory', () => {
       expect(actionCatalog.getActionTypes()).toContain('send_message');
       
       const prompt = (kernel as any).promptBuilder.build({ messageCount: 1 });
-      expect(prompt).not.toContain('\n3. read_file\n');
+      expect(prompt).not.toContain('read_file\n   -');
     });
 
     it('should load only allowed plugins if enabledPlugins is provided', () => {
@@ -283,8 +284,8 @@ describe('AgentFactory', () => {
       expect(actionCatalog.getActionTypes()).not.toContain('write_file');
       
       const prompt = (kernel as any).promptBuilder.build({ messageCount: 1 });
-      expect(prompt).toContain('\n3. read_file\n');
-      expect(prompt).not.toContain('\n4. write_file\n');
+      expect(prompt).toContain('\n4. read_file\n');
+      expect(prompt).not.toContain('write_file\n   -');
 
       fs.rmSync(tempDir, { recursive: true, force: true });
     });
@@ -337,7 +338,7 @@ describe('AgentFactory', () => {
   });
 
   describe('Skill Filtering by AgentProfile (allowedSkills)', () => {
-    it('maintains current behavior if allowedSkills is undefined', () => {
+    it('maintains current behavior if allowedSkills is undefined (registers ask_clarification, send_message, none)', () => {
       const explicitProfile = {
         id: 'explicit',
         name: 'Explicit',
@@ -350,9 +351,15 @@ describe('AgentFactory', () => {
       
       expect(actionCatalog.getActionTypes()).toContain('send_message');
       expect(actionCatalog.getActionTypes()).toContain('none');
+      expect(actionCatalog.getActionTypes()).toContain('ask_clarification');
+
+      const registry = (kernel as any).actionExecutor.registry;
+      expect(registry.getSkillForAction('send_message')).toBeDefined();
+      expect(registry.getSkillForAction('ask_clarification')).toBeDefined();
+      expect(registry.getSkillForAction('none')).toBeDefined();
     });
 
-    it('shows send_message in Available Actions and does not show none if allowedSkills=["send_message"]', () => {
+    it('shows send_message in Available Actions and does not show none or ask_clarification if allowedSkills=["send_message"]', () => {
       const explicitProfile = {
         id: 'explicit',
         name: 'Explicit',
@@ -366,9 +373,37 @@ describe('AgentFactory', () => {
       const prompt = (kernel as any).promptBuilder.build({ messageCount: 1 });
       expect(prompt).toContain('1. send_message');
       expect(prompt).not.toContain('2. none');
+      expect(prompt).not.toContain('ask_clarification');
+
+      const registry = (kernel as any).actionExecutor.registry;
+      expect(registry.getSkillForAction('send_message')).toBeDefined();
+      expect(registry.getSkillForAction('ask_clarification')).toBeUndefined();
+      expect(registry.getSkillForAction('none')).toBeUndefined();
     });
 
-    it('shows none and does not show send_message if allowedSkills=["none"]', () => {
+    it('shows ask_clarification and does not show send_message or none if allowedSkills=["ask_clarification"]', () => {
+      const explicitProfile = {
+        id: 'explicit',
+        name: 'Explicit',
+        description: 'Explicit',
+        persona: { systemInstructions: 'Do explicit stuff' },
+        allowedSkills: ['ask_clarification']
+      };
+      const llmAdapter = new MockLLMAdapter('{}');
+      const kernel = AgentFactory.create(llmAdapter, { agentProfile: explicitProfile });
+      
+      const prompt = (kernel as any).promptBuilder.build({ messageCount: 1 });
+      expect(prompt).toContain('1. ask_clarification');
+      expect(prompt).not.toContain('send_message\n   -');
+      expect(prompt).not.toContain('none\n   -');
+      
+      const registry = (kernel as any).actionExecutor.registry;
+      expect(registry.getSkillForAction('send_message')).toBeUndefined();
+      expect(registry.getSkillForAction('ask_clarification')).toBeDefined();
+      expect(registry.getSkillForAction('none')).toBeUndefined();
+    });
+
+    it('shows none and does not show send_message or ask_clarification if allowedSkills=["none"]', () => {
       const explicitProfile = {
         id: 'explicit',
         name: 'Explicit',
@@ -382,9 +417,12 @@ describe('AgentFactory', () => {
       const prompt = (kernel as any).promptBuilder.build({ messageCount: 1 });
       expect(prompt).not.toContain('\n1. send_message\n');
       expect(prompt).toContain('none');
+      expect(prompt).not.toContain('ask_clarification');
       
       const registry = (kernel as any).actionExecutor.registry;
       expect(registry.getSkillForAction('send_message')).toBeUndefined();
+      expect(registry.getSkillForAction('ask_clarification')).toBeUndefined();
+      expect(registry.getSkillForAction('none')).toBeDefined();
     });
 
     it('fails with clear error if allowedSkills is empty array', () => {
@@ -415,6 +453,27 @@ describe('AgentFactory', () => {
       expect(() => {
         AgentFactory.create(llmAdapter, { agentProfile: explicitProfile });
       }).toThrow('[AgentFactory] AgentProfile references unknown base skill: invalid_skill');
+    });
+
+    it('should accept all skill action types from NativeSkills dynamically without throwing', () => {
+      const actionTypes = getNativeSkillActionTypes();
+      expect(actionTypes.length).toBeGreaterThan(0);
+      
+      const explicitProfile = {
+        id: 'explicit',
+        name: 'Explicit',
+        description: 'Explicit',
+        persona: { systemInstructions: 'Do explicit stuff' },
+        allowedSkills: actionTypes
+      };
+      const llmAdapter = new MockLLMAdapter('{}');
+      const kernel = AgentFactory.create(llmAdapter, { agentProfile: explicitProfile });
+      expect(kernel).toBeDefined();
+
+      const registry = (kernel as any).actionExecutor.registry;
+      for (const type of actionTypes) {
+        expect(registry.getSkillForAction(type)).toBeDefined();
+      }
     });
   });
 

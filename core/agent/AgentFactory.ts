@@ -8,7 +8,7 @@ import { ContextBuilder } from '../context/ContextBuilder';
 import { PromptBuilder } from '../context/PromptBuilder';
 import { DecisionParser } from '../routing/DecisionParser';
 import { SkillRegistry } from '../skills/SkillRegistry';
-import { SendMessageSkill } from '../skills/SendMessageSkill';
+import { getNativeSkillActionTypes, getNativeSkillDefinitions } from '../skills/NativeSkills';
 import { ActionExecutor } from '../flow/ActionExecutor';
 import { PolicyEngine } from '../policy/PolicyEngine';
 import { MemoryReader } from '../memory/MemoryReader';
@@ -50,8 +50,9 @@ export class AgentFactory {
       if (effectiveProfile.allowedSkills.length === 0) {
         throw new Error('[AgentFactory] AgentProfile.allowedSkills cannot be empty in interactive agents.');
       }
+      const validBaseSkills = getNativeSkillActionTypes();
       for (const skill of effectiveProfile.allowedSkills) {
-        if (skill !== 'send_message' && skill !== 'none') {
+        if (!validBaseSkills.includes(skill)) {
           throw new Error(`[AgentFactory] AgentProfile references unknown base skill: ${skill}`);
         }
       }
@@ -66,8 +67,10 @@ export class AgentFactory {
     const memoryReader = new MemoryReader(eventLog);
     
     const skillRegistry = new SkillRegistry();
-    if (!effectiveProfile?.allowedSkills || effectiveProfile.allowedSkills.includes('send_message')) {
-      skillRegistry.register(new SendMessageSkill());
+    for (const def of getNativeSkillDefinitions()) {
+      if (!effectiveProfile?.allowedSkills || effectiveProfile.allowedSkills.includes(def.actionType)) {
+        skillRegistry.register(new def.skillClass());
+      }
     }
     
     const toolRegistry = new ToolRegistry();

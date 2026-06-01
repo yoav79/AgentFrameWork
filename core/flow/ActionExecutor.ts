@@ -12,13 +12,6 @@ export class ActionExecutor {
   public async execute(decision: Decision): Promise<ExecutionResult> {
     const actionType = decision.proposedAction.type;
 
-    if (actionType === 'none') {
-      return {
-        success: true,
-        message: 'No action required.'
-      };
-    }
-
     const skill = this.registry.getSkillForAction(actionType);
 
     if (skill) {

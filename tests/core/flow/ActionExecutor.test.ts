@@ -7,6 +7,7 @@ import { Decision } from '../../../core/schemas/Decision';
 import { ToolRegistry } from '../../../core/tools/ToolRegistry';
 import { Tool } from '../../../core/tools/Tool';
 import { ToolResult } from '../../../core/tools/ToolResult';
+import { NoneSkill } from '../../../core/skills/NoneSkill';
 
 class SyncSkill implements Skill {
   name = 'SyncSkill';
@@ -54,8 +55,9 @@ class ThrowingTool implements Tool {
 }
 
 describe('ActionExecutor', () => {
-  it('should return controlled success when action type is none', async () => {
+  it('should return controlled success when action type is none and NoneSkill is registered', async () => {
     const registry = new SkillRegistry();
+    registry.register(new NoneSkill());
     const executor = new ActionExecutor(registry);
     
     const decision: Decision = {
@@ -67,6 +69,21 @@ describe('ActionExecutor', () => {
     const result = await executor.execute(decision);
     expect(result.success).toBe(true);
     expect(result.message).toContain('No action required');
+  });
+
+  it('should return error when action type is none but NoneSkill is not registered', async () => {
+    const registry = new SkillRegistry();
+    const executor = new ActionExecutor(registry);
+    
+    const decision: Decision = {
+      intent: 'unknown',
+      confidence: 1,
+      proposedAction: { type: 'none' }
+    };
+
+    const result = await executor.execute(decision);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('No compatible skill or tool found');
   });
 
   it('should return error when no compatible skill is found', async () => {

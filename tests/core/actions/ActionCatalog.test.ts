@@ -4,6 +4,7 @@ import { PromptBuilder } from '../../../core/context/PromptBuilder';
 import { DecisionParser } from '../../../core/routing/DecisionParser';
 import { PolicyEngine } from '../../../core/policy/PolicyEngine';
 import { BuiltContext } from '../../../core/context/ContextBuilder';
+import { getNativeSkillActionTypes, getNativeSkillDefinitions } from '../../../core/skills/NativeSkills';
 
 describe('ActionCatalog integration', () => {
   it('correctly provides actions and properties', () => {
@@ -84,12 +85,22 @@ describe('ActionCatalog integration', () => {
       const types = catalog.getActionTypes();
       expect(types).toContain('send_message');
       expect(types).toContain('none');
+      expect(types).toContain('ask_clarification');
     });
 
     it('filters out base actions not in allowedSkills', () => {
       const catalog = new ActionCatalog([], ['send_message']);
       const types = catalog.getActionTypes();
       expect(types).toContain('send_message');
+      expect(types).not.toContain('none');
+      expect(types).not.toContain('ask_clarification');
+    });
+
+    it('can keep ask_clarification only', () => {
+      const catalog = new ActionCatalog([], ['ask_clarification']);
+      const types = catalog.getActionTypes();
+      expect(types).toContain('ask_clarification');
+      expect(types).not.toContain('send_message');
       expect(types).not.toContain('none');
     });
 
@@ -98,13 +109,48 @@ describe('ActionCatalog integration', () => {
       const types = catalog.getActionTypes();
       expect(types).toContain('none');
       expect(types).not.toContain('send_message');
+      expect(types).not.toContain('ask_clarification');
     });
 
-    it('can keep both if explicitly provided', () => {
-      const catalog = new ActionCatalog([], ['send_message', 'none']);
+    it('can keep send_message and ask_clarification and remove none', () => {
+      const catalog = new ActionCatalog([], ['send_message', 'ask_clarification']);
+      const types = catalog.getActionTypes();
+      expect(types).toContain('send_message');
+      expect(types).toContain('ask_clarification');
+      expect(types).not.toContain('none');
+    });
+
+    it('can keep all if explicitly provided', () => {
+      const catalog = new ActionCatalog([], ['send_message', 'none', 'ask_clarification']);
       const types = catalog.getActionTypes();
       expect(types).toContain('send_message');
       expect(types).toContain('none');
+      expect(types).toContain('ask_clarification');
+    });
+  });
+
+  describe('NativeSkills dynamic synchronization', () => {
+    it('should match action types between ActionCatalog and NativeSkills when no filter is applied', () => {
+      const catalog = new ActionCatalog();
+      const catalogTypes = catalog.getActionTypes();
+      
+      const nativeActionTypes = getNativeSkillActionTypes();
+      
+      for (const type of nativeActionTypes) {
+        expect(catalogTypes).toContain(type);
+      }
+    });
+
+    it('should dynamically inherit action definition details from NativeSkills catalog', () => {
+      const catalog = new ActionCatalog();
+      
+      for (const def of getNativeSkillDefinitions()) {
+        const actionInCatalog = catalog.getAction(def.actionType);
+        expect(actionInCatalog).toBeDefined();
+        expect(actionInCatalog?.description).toBe(def.actionDefinition.description);
+        expect(actionInCatalog?.isTerminal).toBe(def.actionDefinition.isTerminal);
+        expect(actionInCatalog?.minConfidence).toBe(def.actionDefinition.minConfidence);
+      }
     });
   });
 });

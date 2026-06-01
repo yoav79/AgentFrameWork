@@ -9,6 +9,7 @@ import { ActionExecutor } from '../../../core/flow/ActionExecutor';
 import { LLMAdapter } from '../../../core/llm/LLMAdapter';
 import { SkillRegistry } from '../../../core/skills/SkillRegistry';
 import { Skill } from '../../../core/skills/Skill';
+import { NoneSkill } from '../../../core/skills/NoneSkill';
 import { PolicyEngine } from '../../../core/policy/PolicyEngine';
 import { EventType } from '../../../core/events/EventType';
 import { MemoryReader } from '../../../core/memory/MemoryReader';
@@ -383,9 +384,11 @@ describe('AgentKernel', () => {
     });
     const llmAdapter = new MockLLMAdapter(validJson);
     const generateSpy = vi.spyOn(llmAdapter, 'generate');
+    const skillRegistry = new SkillRegistry();
+    skillRegistry.register(new NoneSkill());
     const kernel = new AgentKernel(
       new InMemoryEventLog(), new StateResolver(), new ContextBuilder(), new PromptBuilder(),
-      llmAdapter, new DecisionParser(), new PolicyEngine(), new ActionExecutor(new SkillRegistry())
+      llmAdapter, new DecisionParser(), new PolicyEngine(), new ActionExecutor(skillRegistry)
     );
 
     const result = await kernel.run({ input: 'do nothing' });
