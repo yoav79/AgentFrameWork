@@ -6,6 +6,12 @@ export interface FlowConfig {
   allowRetries: boolean;
   maxRetries: number;
   stepTimeoutMs?: number;
+
+  actionBudget?: number;
+  maxConsecutiveFailures?: number;
+  detectRepeatedActions?: boolean;
+  maxRepeatedActions?: number;
+  requireTerminalAction?: boolean;
 }
 
 export const DEFAULT_FLOW_CONFIG: FlowConfig = {
@@ -15,4 +21,10 @@ export const DEFAULT_FLOW_CONFIG: FlowConfig = {
   stopOnToolError: true,
   allowRetries: false,
   maxRetries: 0,
+  actionBudget: undefined,
+  maxConsecutiveFailures: 2,
+  detectRepeatedActions: false,
+  maxRepeatedActions: 2,
+  requireTerminalAction: false,
 };
+

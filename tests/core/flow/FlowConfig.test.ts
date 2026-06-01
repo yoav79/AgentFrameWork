@@ -9,5 +9,13 @@ describe('FlowConfig', () => {
     expect(DEFAULT_FLOW_CONFIG.maxToolCalls).toBe(1);
     expect(DEFAULT_FLOW_CONFIG.stopOnPolicyRejection).toBe(true);
     expect(DEFAULT_FLOW_CONFIG.stopOnToolError).toBe(true);
+    
+    // New fields for Hito G: Loop Profesional
+    expect(DEFAULT_FLOW_CONFIG.actionBudget).toBeUndefined();
+    expect(DEFAULT_FLOW_CONFIG.maxConsecutiveFailures).toBe(2);
+    expect(DEFAULT_FLOW_CONFIG.detectRepeatedActions).toBe(false);
+    expect(DEFAULT_FLOW_CONFIG.maxRepeatedActions).toBe(2);
+    expect(DEFAULT_FLOW_CONFIG.requireTerminalAction).toBe(false);
   });
 });
+
